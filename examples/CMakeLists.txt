@@ -8,10 +8,10 @@
         list(APPEND bredala_transports bredala_transport_cci)
     endif(${transport_cci})
 
-    add_subdirectory              (direct)
-    add_subdirectory              (manala)
-    add_subdirectory              (contract)
-
+    #add_subdirectory              (direct)
+    #add_subdirectory              (manala)
+    #add_subdirectory              (contract)
+    add_subdirectory               (mpas_vis)
     #  add_subdirectory            (flowvr)
 
     if                            (LAMMPS_INCLUDE_DIR AND
