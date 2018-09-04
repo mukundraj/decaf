@@ -10,3 +10,5 @@ individual-docs/hadrien/**/*.toc
 build/
 python/*.pyc
 install/
+.DS_Store
+*.swp
