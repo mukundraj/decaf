@@ -76,7 +76,7 @@ int main(){
 	// define the workflow
 	Workflow workflow;
 	//make_wflow(workflow);
-	Workflow::make_wflow_from_json(workflow, "linear2.json");
+	Workflow::make_wflow_from_json(workflow, "mpas_decaf_flowvis.json");
 
 	MPI_Init(NULL, NULL);
 

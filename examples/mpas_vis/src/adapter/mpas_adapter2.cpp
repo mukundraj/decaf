@@ -316,7 +316,7 @@ void f_MPI_Comm_c2f(MPI_Fint &comm) {
 
 void init_decaf(){
 	Workflow workflow;
-	Workflow::make_wflow_from_json(workflow, "linear2.json");
+	Workflow::make_wflow_from_json(workflow, "mpas_decaf_flowvis.json");
 	MPI_Init(NULL, NULL);
 	decaf2 = new Decaf(MPI_COMM_WORLD, workflow);
 

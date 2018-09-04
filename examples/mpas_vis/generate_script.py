@@ -28,7 +28,7 @@ con = wf.Node("con", start_proc=2, nprocs=1, func='con', cmdline='./flow_main')
 inPort = con.addInputPort("in")
 
 link = wf.Edge(prod.getOutputPort("out"), con.getInputPort("in"), start_proc=0, nprocs=0, func='',
-        path=mod_path, prod_dflow_redist='count', dflow_con_redist='count')
+        path="", prod_dflow_redist='count', dflow_con_redist='count')
 
 # --- convert the nx graph into a workflow data structure and run the workflow ---
 wf.processGraph("mpas_decaf_flowvis")
