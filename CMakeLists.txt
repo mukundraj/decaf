@@ -9,7 +9,25 @@ option                      (build_bredala      "Build Bredala libraries and exa
 option                      (build_manala       "Build Manala libraries and examples"           ON)
 option                      (build_decaf        "Build the Decaf workflow system"               ON)
 option                      (build_tests        "Build the tests examples"                      ON)
+option                      (diy_thread     "Enable diy threading"             OFF)
 set                         (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_SOURCE_DIR}/cmake)
+
+
+ # MPI
+find_package                (MPI REQUIRED)
+if                          (NOT bgq)
+    set                     (libraries ${libraries} ${MPI_C_LIBRARIES} ${MPI_CXX_LIBRARIES})
+endif                       (NOT bgq)
+
+# DIY
+find_path                   (DIY_INCLUDE_DIRS diy/types.h)
+
+
+# Include dirs
+set                         (CMAKE_INCLUDE_SYSTEM_FLAG_CXX "-isystem")
+include_directories         (${DIY_INCLUDE_DIRS}
+                             SYSTEM ${MPI_INCLUDE_PATH})
+
 
 if(build_manala)
     set                     (build_bredala  true)

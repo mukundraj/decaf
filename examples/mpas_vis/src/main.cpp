@@ -4,6 +4,16 @@
 #include <bredala/data_model/vectorfield.hpp>
 #include <bredala/data_model/boost_macros.h>
 
+#include <diy/mpi.hpp>
+#include <diy/master.hpp>
+#include <diy/reduce-operations.hpp>
+#include <diy/decomposition.hpp>
+#include <diy/mpi/datatypes.hpp>
+#include <diy/io/bov.hpp>
+#include <diy/pick.hpp>
+#include <diy/reduce.hpp>
+#include <diy/partners/merge.hpp>
+
 #include <assert.h>
 #include <math.h>
 #include <mpi.h>
@@ -30,6 +40,14 @@ void con(Decaf* decaf)
 {       
 	mpaso mpas1;
 	vector< pConstructData > in_data;
+	
+
+	diy::mpi::communicator world(decaf->con_comm_handle());
+
+	//fprintf(stderr, "diy world size: %d", world.size() );
+	std::string ip_file = "graph.topology";
+	mpas1.generate_domain_decomposition_graph(ip_file, world.size());	
+
 	int ctr = 0;
 	while (decaf->get(in_data))
 	{
@@ -41,18 +59,17 @@ void con(Decaf* decaf)
 		for (size_t i = 0; i < in_data.size(); i++)
 		{
 
-			// get the values and add them
 			VectorFliedd d_data_bar = in_data[i]->getFieldData<VectorFliedd>("data_bar");
 			if (d_data_bar){
 				data_bar = d_data_bar.getVector();
 				printf("got data_bar in con: %f %f %f %f %f %f %f %f %f %f\n", data_bar[13], data_bar[14], data_bar[15], data_bar[16], data_bar[17], data_bar[18], data_bar[1452848+0], data_bar[1452848+4], data_bar[1452848+5], data_bar[1452848+6]);
 				fir_cell_idx = data_bar[0];
 				//printf("fir cell val %f\n", data_bar[int(12+data_bar[4]+data_bar[5]+data_bar[6]+data_bar[7])]);
-
+				fprintf(stderr, "databar size :%ld\n", data_bar.size());
 				unsigned int init_t=0, fin_t = 40000000, h = 200000;
 				std::vector<double> seeds_xyz(1000*3);
 				std::string op_file = std::to_string(ctr)+".vtp";
-				streamlines slines(mpas1, data_bar, op_file , init_t, fin_t, h, seeds_xyz);
+				//streamlines slines(mpas1, data_bar, op_file , init_t, fin_t, h, seeds_xyz);
 			}else{ 
 				printf("null ptr data_bar\n");
 			}

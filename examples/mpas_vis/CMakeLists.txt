@@ -32,7 +32,7 @@ set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${libnabo_LIBRARIES})
 message(STATUS "libnabo found, version ${libnabo_VERSION} (include=${libnabo_INCLUDE_DIRS} libs=${libnabo_LIBRARIES})")
 
 add_executable(flow_main src/main.cpp src/utils/interpolators.cpp src/io/flow.cpp src/io/mpaso.cpp
-    src/filters/streamlines.cpp src/filters/pathlines.cpp)
+    src/filters/streamlines.cpp src/filters/pathlines.cpp src/utils/advect.cpp)
 
 add_library     (mod_mpas_adapter2 MODULE src/adapter/mpas_adapter2.cpp)
 

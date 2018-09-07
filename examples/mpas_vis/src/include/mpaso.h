@@ -25,8 +25,11 @@ public:
     
     std::vector<double> xCells, yCells, zCells;
 
+    
+    std::vector<std::vector<int> > dd_adjmat; 
     mpaso();
-
+    ~mpaso();
+    void generate_domain_decomposition_graph(std::string &filename, int nblocks);
     void loadMeshFromNetCDF_CANGA(const std::string& filename, size_t time_id=0);
     void load_mesh_from_decaf_data_bar(std::vector<double> &decaf_block);
 };

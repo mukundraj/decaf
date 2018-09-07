@@ -3,11 +3,39 @@
 #include "def.h"
 #include "interpolators.h"
 #include <iostream>
+#include <string>
+#include <fstream>
+#include <sstream>
 
 mpaso::mpaso(){
 }
 
+mpaso::~mpaso(){
+}
+void mpaso::generate_domain_decomposition_graph(std::string &filename, int nblocks){
 
+	fprintf(stderr, "%s \n", filename.c_str());
+	std::ifstream file(filename.c_str());
+	
+	std::string line;
+        // Read one line at a time into the variable line:
+        while(std::getline(file, line))
+	{
+		std::vector<int>   lineData;
+		std::stringstream  lineStream(line);
+
+		int value;
+		// Read an integer at a time from the line
+		while(lineStream >> value)
+		{
+			// Add the integers from a line to a 1D array (vector)
+			lineData.push_back(value);
+
+		}
+		this->dd_adjmat.push_back(lineData);
+	}
+	fprintf(stderr, "dd graph %d %d %d %d", dd_adjmat[0][0], dd_adjmat[0][1], dd_adjmat[1][0], dd_adjmat[1][1]);
+}
 void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 
 	std::cout<<"inside new function "<<"\n";

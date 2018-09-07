@@ -12,3 +12,5 @@ python/*.pyc
 install/
 .DS_Store
 *.swp
+
+cscope.out
