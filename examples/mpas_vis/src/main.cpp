@@ -45,7 +45,7 @@ void con(Decaf* decaf)
 			VectorFliedd d_data_bar = in_data[i]->getFieldData<VectorFliedd>("data_bar");
 			if (d_data_bar){
 				data_bar = d_data_bar.getVector();
-				printf("got data_bar in con: %f %f %f %f %f %f %f %f %f %f\n", data_bar[13], data_bar[14], data_bar[15], data_bar[16], data_bar[17], data_bar[18], data_bar[1452848+0], data_bar[1452848+4], data_bar[1452848+5], data_bar[1452848+6]);
+				//printf("got data_bar in con: %f %f %f %f %f %f %f %f %f %f\n", data_bar[13], data_bar[14], data_bar[15], data_bar[16], data_bar[17], data_bar[18], data_bar[1452848+0], data_bar[1452848+4], data_bar[1452848+5], data_bar[1452848+6]);
 				fir_cell_idx = data_bar[0];
 				//printf("fir cell val %f\n", data_bar[int(12+data_bar[4]+data_bar[5]+data_bar[6]+data_bar[7])]);
 
@@ -54,7 +54,7 @@ void con(Decaf* decaf)
 				std::string op_file = std::to_string(ctr)+".vtp";
 				streamlines slines(mpas1, data_bar, op_file , init_t, fin_t, h, seeds_xyz);
 			}else{ 
-				printf("null ptr data_bar\n");
+				fprintf(stderr, "null ptr data_bar\n");
 			}
 		}
 		// printf("consumer sum = %d\n", sum);
@@ -108,7 +108,7 @@ int main(){
 
 
 
-	std::cout<<"finished2\n";
+	std::cout<<"finished\n";
 
 	return 0;
 

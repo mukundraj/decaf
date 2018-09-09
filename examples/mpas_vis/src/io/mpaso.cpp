@@ -10,8 +10,8 @@ mpaso::mpaso(){
 
 void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 
-	std::cout<<"inside new function "<<"\n";
-	printf("fir cell vals %f\n", data_bar[int(12+data_bar[4]+data_bar[5]+data_bar[6]+data_bar[7])]);
+	//std::cout<<"inside new function "<<"\n";
+	//printf("fir cell vals %f\n", data_bar[int(12+data_bar[4]+data_bar[5]+data_bar[6]+data_bar[7])]);
 
 	int n_procs = int(data_bar[17]);
 	int frame_no = int(data_bar[13]); 
@@ -62,7 +62,7 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 	// loop through procs and fill arrays
 	for (int i=0;i<n_procs;i++){
 		int bsp = bar_start_inds[i]; //bar start position for current proc
-		std::cout<<"mpaso initial bar values "<<data_bar[bsp+0]<<" "<<data_bar[bsp+4]<<"\n";
+		//std::cout<<"mpaso initial bar values "<<data_bar[bsp+0]<<" "<<data_bar[bsp+4]<<"\n";
 		// collect field global offsets and sizes in bar
 		field_offsets[read_order[0]] = bsp+20;
 		field_sizes[read_order[0]] = data_bar[bsp+read_order[0]];
@@ -75,7 +75,7 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 		// if frame==1, parse through index to cellID 
 		// if frame==1 parse through vertex order for cellsOnVertex   
 		if (frame_no==1){
-			std::cout<<"populating frame 1  values "<<frame_no<<"\n";
+		//	std::cout<<"populating frame 1  values "<<frame_no<<"\n";
 			cellsOnVertex.resize(nVertices*3);
 			xCells.resize(nCells);
 			yCells.resize(nCells);
@@ -131,7 +131,7 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 			}
 		 */
 
-		std::cout<<"populating non frame 1 related values\n";
+		//std::cout<<"populating non frame 1 related values\n";
 		int l=0;
 		for (int j=field_offsets[0]; j<field_offsets[0]+field_sizes[0];j++){
 			int m = data_bar[j]-1;

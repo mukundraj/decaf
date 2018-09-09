@@ -93,7 +93,7 @@ printf("nVertLevels in streamlines %ld\n", mpas1.nVertLevels);
     int n_seeds = seeds_xyz.size()/3;
     flow flow_lines(n_seeds);
 
-    std::cout<<"nseeds "<<n_seeds<<"\n";
+    //std::cout<<"nseeds "<<n_seeds<<"\n";
     // create kd trees
 
     MatrixXd C(3, mpas1.nCells);
