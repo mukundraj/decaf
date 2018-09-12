@@ -217,7 +217,7 @@ void con(Decaf* decaf)
 				// use assigner to 
 
 			}else{ 
-				printf("null ptr data_bar\n");
+				fprintf(stderr, "null ptr data_bar\n");
 			}
 
 
@@ -282,7 +282,7 @@ int main(){
 
 
 
-	std::cout<<"finished2\n";
+	std::cout<<"finished\n";
 
 	return 0;
 

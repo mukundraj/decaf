@@ -16,7 +16,7 @@ INCLUDE_DIRECTORIES ( "${EIGEN3_INCLUDE_DIR}"  )
 find_package (NetCDF REQUIRED)
 include_directories (${NETCDF_INCLUDE_DIR})
 
-set(VTK_DIR "/homes/mraj/work/projects/VTK-8.1.1/build")
+#set(VTK_DIR "/homes/mraj/work/projects/VTK-8.1.1/build")
 find_package(VTK REQUIRED)
 include(${VTK_USE_FILE})
 
