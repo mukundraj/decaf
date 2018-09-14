@@ -142,9 +142,9 @@ void decaf_put(int id, int frame_no, int nVertices, int nCells, int nVertLevels,
 	data_bar[16] = double (nVertLevels);
 	data_bar[17] = double (n_procs);
 	data_bar[18] = double (data_bar.size());
-
+	//fprintf(stderr, "sending bar %f \n", data_bar[0]);
 	//printf("first xCell %f %f %f\n", data_bar[1445620], data_bar[1445621], data_bar[1445622]);
-	VectorFliedd data (&data_bar[0], n_data_bar, 1); 
+	VectorFliedd data (&data_bar[0], n_data_bar, n_data_bar); 
 	container->appendData("data_bar", data, DECAF_NOFLAG, DECAF_PRIVATE, DECAF_SPLIT_DEFAULT, DECAF_MERGE_DEFAULT); 
 	decaf2->put(container);
 	
@@ -165,7 +165,7 @@ void stage_put_intarray(int i1d[], int n, int id, int frame_num){
 			//printf("indexToCellID [0]: %d\n", indexToCellID[0]);
 			n_indexToCellID = n;
 			db_indexToCellID.insert(db_indexToCellID.end(), &indexToCellID[0], &indexToCellID[n]);
-
+			// fprintf(stderr, "indexToCell adapter %d \n", indexToCellID[0]);
 			//container->appendData("indexToCellID", data, DECAF_NOFLAG, DECAF_PRIVATE, DECAF_SPLIT_DEFAULT, DECAF_MERGE_DEFAULT);
 			break;
 		case 7: indexToVertexID = &i1d[0];
