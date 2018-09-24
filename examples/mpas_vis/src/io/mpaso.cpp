@@ -6,12 +6,36 @@
 #include <string>
 #include <fstream>
 #include <sstream>
+#include "misc.h"
+
+#include <Eigen/Dense>
 
 mpaso::mpaso(){
+	radius = 6371220.;
+	init = 0;
+	done = 0;
 }
 
 mpaso::~mpaso(){
 }
+
+int mpaso::get_bid_for_pt(double *coords){
+	
+ 	int bid;	
+	
+	// find nearest cell
+	Eigen::VectorXi nearest_cell_idx(1);
+	Eigen::VectorXd dists2(1);
+	Eigen::VectorXd q(3);
+
+	q << coords[0], coords[1] , coords[2];		
+	nns_cells->knn(q, nearest_cell_idx,dists2, 1);
+
+	// find the bid of the cell
+	bid = cellID_to_bid[nearest_cell_idx[0]];
+	return bid;		
+}
+
 void mpaso::generate_domain_decomposition_graph(std::string &filename, int nblocks){
 
 	fprintf(stderr, "%s \n", filename.c_str());
@@ -34,7 +58,32 @@ void mpaso::generate_domain_decomposition_graph(std::string &filename, int nbloc
 		}
 		this->dd_adjmat.push_back(lineData);
 	}
+	file.close();
 	fprintf(stderr, "dd graph %d %d %d %d", dd_adjmat[0][0], dd_adjmat[0][1], dd_adjmat[1][0], dd_adjmat[1][1]);
+
+
+	// now populate the cellID_to_bid vector
+	std::string ip_file = "graph.info.part."+itos(nblocks);
+	int ctr=0, temp;
+	file.open(ip_file);
+	while ( !file.eof ()  ) {   
+		ctr++; 
+		file >> temp;
+	}
+	file.close();
+	cellID_to_bid.resize(ctr-1);
+	file.open(ip_file);
+	ctr=0;
+	while (std::getline(file,line)) { 
+		std::istringstream iss(line);
+		iss >>  cellID_to_bid[ctr];
+		ctr++;
+	}
+	file.close();
+
+
+	
+
 }
 void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 

@@ -6,7 +6,16 @@
 #include <Eigen/Dense>
 #include <iostream>
 
+#include "mpaso.h"
+
+//#include "pblock.hpp"
+
+
 using namespace Eigen;
+
+streamlines::streamlines(){
+
+}
 
 // generate seeds from the vertex list
 void streamlines::generate_seeds(mpaso &mpasobj, int skipval, std::vector<double> &seeds_xyz){
@@ -42,7 +51,6 @@ void streamlines::generate_seeds(mpaso &mpasobj, int skipval, std::vector<double
 
             //         std::cout<<vert_id<<" "<<j<<" "<<seeds_xyz.size()<<"\n";
         }
-
     }
 
 }
@@ -234,6 +242,12 @@ void streamlines::runge_kutta(double &cx, double &cy, double &cz, float h, Vecto
 
 
 }
+
+// get cur velocity if inside, else return false
+// void streamlines::get_cvel_if_inside(double *X, Vector3d &c_vel){
+//
+// }
+
 void streamlines::get_curpos_velocity_sl(double cx, double cy, double cz, Vector3d &c_vel,
                                          VectorXi &nearest_idx, bool &terminate_stat){
 
@@ -290,6 +304,11 @@ void streamlines::get_curpos_velocity_sl(double cx, double cy, double cz, Vector
 
 
 }
+
+
+
+
+
 void streamlines::compute(){
 
 

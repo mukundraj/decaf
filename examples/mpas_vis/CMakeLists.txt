@@ -40,7 +40,7 @@ set (PNETCDF_LIBRARY ${PNETCDF_DIR}/lib/libpnetcdf.a)
 include_directories (${PNETCDF_INCLUDE_DIR})
 
 add_executable(flow_main src/main.cpp src/utils/interpolators.cpp src/io/flow.cpp src/io/mpaso.cpp
-    src/filters/streamlines.cpp src/filters/pathlines.cpp src/utils/advect.cpp)
+    src/filters/streamlines.cpp src/filters/pathlines.cpp src/utils/advect.cpp src/io/block_io.cpp src/utils/misc.cpp)
 
 add_library     (mod_mpas_adapter2 MODULE src/adapter/mpas_adapter2.cpp)
 
@@ -50,7 +50,7 @@ set_target_properties       (mod_mpas_adapter2          PROPERTIES SUFFIX ".so")
 # Don't add a 'lib' prefix to the shared library
 set_target_properties       (mod_mpas_adapter2       PROPERTIES PREFIX "")
 
-target_link_libraries (flow_main ${NETCDF_LIBRARIES} ${VTK_LIBRARIES} ${libnabo_LIBRARIES} ${libraries} ${bredala_transports} bredala_datamodel manala decaf)
+target_link_libraries (flow_main ${NETCDF_LIBRARIES} ${VTK_LIBRARIES} ${libnabo_LIBRARIES} ${libraries} ${bredala_transports} ${PNETCDF_LIBRARY} bredala_datamodel manala decaf)
 
 install                     (TARGETS flow_main mod_mpas_adapter2 
                             DESTINATION ${CMAKE_INSTALL_PREFIX}/examples/mpas_vis/

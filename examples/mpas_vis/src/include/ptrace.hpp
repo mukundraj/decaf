@@ -32,6 +32,7 @@ struct EndPt
         {
             pid      = 0;
             sid      = 0;
+	    start_time = 0;
         }
     EndPt(struct Segment& s);                // extract the end point of a segment
 };

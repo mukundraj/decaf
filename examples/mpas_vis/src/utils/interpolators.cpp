@@ -1,4 +1,5 @@
 #include "interpolators.h"
+#include <iostream>
 
 // *** need to linearly interpolate positions( x, y and z) and values ***
 
@@ -58,16 +59,17 @@ void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex,
 
 
     }
-    //    for (int i=0;i<values.size();i++){
-    //        std::cout<<i<<" "<<values[i]<<"\n";
-    //    }
+       //      fprintf(stderr, "printing values: ");
+       // for (int i=0;i<values.size();i++){
+       //     std::cout<<i<<" "<<values[i]<<"\n";
+       // }
 }
 
 double linear_inter(double x, double x1, double x2, double q00, double q01){
     return ((x2 - x) / (x2 - x1)) * q00 + ((x - x1) / (x2 - x1)) * q01;
 }
 
-void interpolate_horizontally(double cx, double cy, double cz,
+bool interpolate_horizontally(double cx, double cy, double cz,
                               std::vector<double> &values, Eigen::Vector3d &c_vel){
 
 
@@ -125,12 +127,17 @@ void interpolate_horizontally(double cx, double cy, double cz,
         w[i] = C[i] * A[i];
         W += w[i];
     }
-    if (fabs(W)>=0){
+
+    bool point_outside = false;  
+    if (fabs(W)>=0){ // TO_DO: This statement seems meaningless. Figure out. Also deal with exiting the global domain.
         assert(fabs(W) > 0.0);
         const double invW = 1.0 / W;
 
         for (size_t i = 0; i < n; ++i){
             b[i] = w[i] * invW;
+	    if (b[i]<0){
+		point_outside = true;
+	    }
         }
 
         // remember to fill in c_vel
@@ -143,6 +150,13 @@ void interpolate_horizontally(double cx, double cy, double cz,
     }
 
     //    std::cout<<c_vel;
+    
+    if (point_outside){
+	    return false;
+    }else{
+	    return true;
+    }
+    
 
 
 }

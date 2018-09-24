@@ -16,9 +16,9 @@
 #define _ADVECT_H
 
 #include <stdbool.h>
-
+#include "mpaso.h"
 #ifdef __cplusplus
-extern "C" {
+// extern "C" {
 #endif
 
     bool trace_3D_rk1(const int   *gst,
@@ -46,8 +46,14 @@ extern "C" {
                         float        h,
                         float       *Y);
 
+    bool trace_3D_rk1_mpas(mpaso &mpas_g, 
+    				mpaso &mpas_c, 
+				double *X, 
+				double h, 
+				double *Y);
+
 #ifdef __cplusplus
-}
+// }
 #endif
 
 #endif

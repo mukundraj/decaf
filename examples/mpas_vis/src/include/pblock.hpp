@@ -1,11 +1,14 @@
 #ifndef PBLOCK_H
 #define PBLOCK_H
 
+#include <vector>
+// #include <diy/serialization.hpp>
 
+using namespace std;
 
 struct Pt
 {
-    float coords[3];                         // (x, y, z)
+    double coords[3];                         // (x, y, z)
 };
 
 // whether a point is inside given bounds
@@ -25,14 +28,18 @@ struct EndPt
     int  pid;                                // particle ID
     Pt   pt;                                 // end pointof the trace
     int  sid;                                // segment ID of this part of the trace
+	int step; 				// number of steps from start for this point in trace
+	int gpid;    // global pid based on the block of origin 
 
-    const float& operator [](int i) const { return pt.coords[i]; }
-    float& operator [](int i)             { return pt.coords[i]; }
+    const double& operator [](int i) const { return pt.coords[i]; }
+    double& operator [](int i)             { return pt.coords[i]; }
 
     EndPt()
         {
             pid      = 0;
             sid      = 0;
+	    step     = 0; // initially all particles are at step zero
+	    gpid     = 0; // need to set this based on the block of initialization
         }
     EndPt(struct Segment& s);                // extract the end point of a segment
 };
@@ -43,18 +50,21 @@ struct Segment
     int        pid;                          // particle ID
     vector<Pt> pts;                          // points along trace
     int        sid;                          // segment ID of this part of the trace
-
+    int 	start_step; 			// step of first point in this segment with regard to whole trace
+    int gpid; // global pid based on the block of origin of the original segment 
     Segment()
         {
             pid      = 0;
             sid      = 0;
         }
-    Segment(EndPt& p)                        // construct a segment from one point
+    Segment(EndPt& p  )       // construct a segment from one point.
         {
             pid      = p.pid;
             sid      = p.sid;
             Pt pt    = { p[0], p[1], p[2] };
+	    start_step = p.step;
             pts.push_back(pt);
+	    gpid = p.gpid;
         }
 
     // whether end point is inside given bounds
@@ -70,10 +80,12 @@ struct Segment
 // following constructor defined out of line because references Segment, which needed
 // to be defined first
 EndPt::
-EndPt(Segment& s)                       // extract the end point of a segment
+EndPt(Segment& s)                       // extract the end point of a segment.  CHECK also pass start_step here?
 {
     pid = s.pid;
     sid = s.sid;
+    step = s.start_step + s.pts.size();
+    gpid = s.gpid;
     pt.coords[0] = s.pts.back().coords[0];
     pt.coords[1] = s.pts.back().coords[1];
     pt.coords[2] = s.pts.back().coords[2];
@@ -109,6 +121,7 @@ struct PBlock
     PBlock(): count(0)                   {}
 
     	int   count;
+	int gid;
     	vector<int> values{9,9,9};
 	vector<int> indexToCellID; 	//0
 	vector<double> xCell; 		//1
@@ -123,6 +136,11 @@ struct PBlock
 	vector<double> zVertex; 	//10
 	vector<double> zTop; 		//11
 	vector<int> cellsOnVertex; 	//12
+
+	 vector<Segment> segments; // finished segments of particle traces
+	 vector<int> global_trace_sizes; // latest known size (length) of each block particle to id early finishes 
+	 vector<int> global_nP; // global view of particles initialized in each block
+	 vector<int> global_start_ids; // global start ids used for computing a global particle id
 };
 
 namespace diy

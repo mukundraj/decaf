@@ -8,6 +8,11 @@
 #include "mpaso.h"
 #include "nabo/nabo.h"
 
+#include <diy/assigner.hpp>
+
+
+
+struct PBlock;
 
 class streamlines
 {
@@ -15,6 +20,7 @@ class streamlines
 
 
  public:
+  streamlines();
 
   streamlines(mpaso &mpas1, std::vector<double> decaf_bar, std::string &op_file_name,
               float init_t, float fin_t, float h, std::vector<double> &seeds_xyz);

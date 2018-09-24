@@ -18,7 +18,7 @@
 #include <cstdlib>
 #include <cassert>
 
-extern "C" {
+// extern "C" {
 
     bool trace_3D_brown(const int *st,
                         const int *sz,
@@ -44,6 +44,17 @@ extern "C" {
 
         return true;
     }
+
+   //  bool trace_3d_rk1_mpas(mpaso &mpas_g,
+   //                                  mpaso &mpas_c,
+   //                              double *X,
+   //                              double h,
+   //                              double *Y)
+   // {
+   //
+   //          return false;
+   //
+   //  }
 
     bool trace_3D_rk1(const int *gst,
                       const int *gsz,
@@ -109,4 +120,4 @@ extern "C" {
         return true;
     }
 
-}
+// }

@@ -46,7 +46,7 @@ void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex,
 
 double linear_inter(double x, double x1, double x2, double q00, double q01);
 
-void interpolate_horizontally(double cx, double cy, double cz,
+bool interpolate_horizontally(double cx, double cy, double cz,
                               std::vector<double> &values, Eigen::Vector3d &c_vel);
 
 int bin_search_index(std::vector<double> &zTopVertex, int lo, int hi, double val);
