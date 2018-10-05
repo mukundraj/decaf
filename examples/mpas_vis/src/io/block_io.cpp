@@ -74,7 +74,7 @@ void block_io::write_cell_centers( int gid, const diy::mpi::communicator &world,
 
 }
 
-
+// test parallel writing function
 	void block_io::write_cell_centers( int gid, const diy::mpi::communicator &world, std::vector<double> &xCell){
 
 		int ret, ncfile, nprocs, rank, dimid, varid1, varid2, ndims=1;

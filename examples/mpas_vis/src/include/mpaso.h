@@ -4,6 +4,7 @@
 #include <string>
 #include <map>
 #include <vector>
+#include <set>
 
 #include "nabo/nabo.h"
 
@@ -20,7 +21,7 @@ class mpaso
 		std::vector<double> latVertex, lonVertex, xVertex, yVertex, zVertex;
 		std::vector<double> xyzCell; // xCell, yCell, zCell;
 		std::vector<int> indexToVertexID, indexToCellID;
-		std::vector<int> verticesOnEdge, cellsOnVertex;
+		std::vector<int> verticesOnEdge, cellsOnVertex, verticesOnCell;
 		std::vector<double> velocityX, velocityY, velocityZ;
 		std::vector<double> velocityXv, velocityYv, velocityZv;
 		std::vector<double> zTop;
@@ -36,6 +37,8 @@ class mpaso
 		void generate_domain_decomposition_graph(std::string &filename, int nblocks);
 		void loadMeshFromNetCDF_CANGA(const std::string& filename, size_t time_id=0);
 		void load_mesh_from_decaf_data_bar(std::vector<double> &decaf_block);
+		void compute_cellIndex(int cblock, int nblocks);
+		void read_cell_g_neighbors(); // reads graph.info and populates cell_g_neighbors
 
 		int get_bid_for_pt(double *coords);
 
@@ -64,7 +67,15 @@ class mpaso
 		std::vector<double> zTop_p;
 		std::vector<int> cellsOnVertex_p; 
 
+		std::vector<std::vector<int>> cell_g_neighbors;
+
+		std::set<int> ghost_cell_ids;
+		std::set<int> block_vert_ids; // global ids of vertices native to block
+
+
 		int init, done;
+
+		int gid;
 		
 		double radius;	
 };

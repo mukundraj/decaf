@@ -41,34 +41,103 @@ using namespace std;
 #include "nabo/nabo.h"
 #include "interpolators.h"
 
+#include "misc.h"
+
 //#include "advect.h"
 
 
-  void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, int max_steps, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner, diy::mpi::communicator &world );
+// TODO: remove global variables
+Eigen::MatrixXd *M_local;
+Eigen::MatrixXd C_local;
+
+void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, int max_steps, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner, diy::mpi::communicator &world );
+
 int frame_number = 0, global_gid; //FIX_ME: remove global variable
 
+// computes vertex values for ghost vertices that also lie on native cells.
+void compute_ghost_vertex_values(mpaso &mpas_c){
+
+
+
+
+
+	// TODO: 1) deal with pentagonal cells 2) Avoid repeated computations of velocity and top levels of vertices
+	int nVertLevels = mpas_c.nVertLevels;
+
+	mpas_c.velocityXv.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
+	mpas_c.velocityYv.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
+	mpas_c.velocityZv.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
+	mpas_c.zTopVertex.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
+	
+	for (int i=0;i<mpas_c.nCells;i++){
+
+		for(int j=0;j<6;j++){
+			int nvgid = mpas_c.verticesOnCell[i*6+j]; // neighbor vertex global id
+			// if(mpas_c.block_vert_ids.find(nvgid)==mpas_c.block_vert_ids.end() ){
+
+				// get local vertex id from global id
+				int nvlid = mpas_c.vertexIndex[nvgid];
+
+				int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+2]];
+
+
+
+				double X[3][3] = {
+					{mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2]},
+					{mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2]},
+					{mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]}
+				};
+
+				double P[3] = {mpas_c.xVertex[nvlid], mpas_c.yVertex[nvlid], mpas_c.zVertex[nvlid]};
+
+				double lambda[3];
+				barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
+
+
+
+
+				for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
+
+
+
+					mpas_c.velocityXv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityX[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityX[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.velocityYv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityY[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityY[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityY[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.velocityZv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityZ[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityZ[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityZ[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.zTopVertex[nvlid*mpas_c.nVertLevels + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+				}
+
+			// }
+
+		}
+
+
+	}
+
+
+
+}
+
 void populate_block( PBlock* b,
-		int gid,
-		std::vector<double> &data_bar, mpaso *mpasobj, diy::mpi::communicator &world, mpaso &mpas_c ){
+	int gid,
+	std::vector<double> &data_bar, mpaso *mpasobj, diy::mpi::communicator &world, mpaso &mpas_c ){
 
-
-	int frame_no = (int) data_bar[13];
-	int nVertices = (int) data_bar[14];
-	int nCells = (int) data_bar[15];
-	int nVertLevels = (int) data_bar[16];
+	int frame_no = (int) data_bar[14];
+	int nVertices = (int) data_bar[15];
+	int nCells = (int) data_bar[16];
+	int nVertLevels = (int) data_bar[17];
 	// int nCells_global;
 	std::vector<int> nCell_counts, nVertices_counts; 
 	std::vector<std::vector<double>> xCells_global, yCells_global, zCells_global, 
-		xVertex_global, yVertex_global, zVertex_global; 
+	xVertex_global, yVertex_global, zVertex_global; 
 
-	int read_order[13] = {4, 5, 6, 11, 0, 1, 2, 3, 8, 9,10,7, 12};
-	int field_offsets[13];
-	int field_sizes[13];
+	int read_order[14] = {4, 5, 6, 11, 0, 1, 2, 3, 8, 9,10,7, 12, 13};
+	int field_offsets[14];
+	int field_sizes[14];
 	int bsp = 0; // block start position
 
 	field_offsets[read_order[0]] = bsp+20;
 	field_sizes[read_order[0]] = data_bar[bsp+read_order[0]];
-	for (int j=1; j<13; j++){
+	for (int j=1; j<14; j++){
 		field_offsets[read_order[j]] = field_offsets[read_order[j-1]]+field_sizes[read_order[j-1]];
 		field_sizes[read_order[j]] = data_bar[bsp+read_order[j]];
 	}
@@ -90,6 +159,7 @@ void populate_block( PBlock* b,
 		b->zVertex.resize(nVertices); //10
 		b->zTop.resize(nVertLevels*nCells); //11
 		b->cellsOnVertex.resize(nVertices*3); //12
+		b->verticesOnCell.resize(nCells*6); //13
 
 		// for (int i =0;i<13; i++)
 		//   fprintf(stderr, "field offsets %d %d %d\n", i, field_offsets[i], field_sizes[i]);
@@ -100,27 +170,41 @@ void populate_block( PBlock* b,
 			b->yCell[k] = data_bar[field_offsets[2]+k];
 			b->zCell[k] = data_bar[field_offsets[3]+k];
 			b->indexToCellID[k] = (int)data_bar[field_offsets[0]+k];
-			// b->indexToVertexID[data_bar[j]-1] = data_bar[j];
+			
 			// //std::cout<<" "<<int(data_bar[j]);
 			k++;
 		}
 
 		k = 0;
 		for (int j=field_offsets[7];j<field_offsets[7]+field_sizes[7];j++){
+			b->indexToVertexID[k] = (int)data_bar[field_offsets[7]+k];
 			b->xVertex[k] = data_bar[field_offsets[8]+k];
 			b->yVertex[k] = data_bar[field_offsets[9]+k];
 			b->zVertex[k] = data_bar[field_offsets[10]+k];
+
 			k++;
 		}
 
 		int l=0;
 		for (int j=field_offsets[7];j<field_offsets[7]+field_sizes[7];j++){
 			// int m = data_bar[j] - 1;
+
 			for (int k=0; k<3; k++){
 				b->cellsOnVertex[l*3+k] = data_bar[field_offsets[12]+3*l+k];
 			}
 			l++;	
 		}
+
+		fprintf(stderr, "verticesOnCell %d %d %d\n",field_offsets[13], field_sizes[13], (int)data_bar.size());
+		l=0;
+		for (int j=field_offsets[0];j<field_offsets[0]+field_sizes[0];j++){
+			for (int k=0; k<6; k++){
+				b->verticesOnCell[l*6+k] = data_bar[field_offsets[13]+6*l+k];
+			}
+			l++;	
+		}
+
+
 
 
 		// MPI_allgather for getting number of cells
@@ -172,45 +256,28 @@ void populate_block( PBlock* b,
 
 		// Construct global kd trees for vertices and cells
 
-		Eigen::MatrixXd C(3, mpasobj->nCells);
-		for (int i=0;i<mpasobj->nCells;i++){
-			C(0,i) = mpasobj->xCells[i];
-			C(1,i) = mpasobj->yCells[i];
-			C(2,i) = mpasobj->zCells[i];
-		}
+		// Eigen::MatrixXd C(3, mpasobj->nCells);
+		// for (int i=0;i<mpasobj->nCells;i++){
+		// 	C(0,i) = mpasobj->xCells[i];
+		// 	C(1,i) = mpasobj->yCells[i];
+		// 	C(2,i) = mpasobj->zCells[i];
+		// }
 
 		// mpasobj->nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C);
 
-		Eigen::MatrixXd M(3, mpasobj->nVertices);
-		for (int i=0;i<mpasobj->nVertices;i++){
-			M(0,i) = mpasobj->xVertex[i];
-			M(1,i) = mpasobj->yVertex[i];
-			M(2,i) = mpasobj->zVertex[i];
-		}
+		// Eigen::MatrixXd M(3, mpasobj->nVertices);
+		// for (int i=0;i<mpasobj->nVertices;i++){
+		// 	M(0,i) = mpasobj->xVertex[i];
+		// 	M(1,i) = mpasobj->yVertex[i];
+		// 	M(2,i) = mpasobj->zVertex[i];
+		// }
 
 
 		// mpasobj->nns = Nabo::NNSearchD::createKDTreeLinearHeap(M);
 
 		// Construct local kd trees for vertices and cells
 
-		Eigen::MatrixXd C_local(3, nCells);
-		for (int i=0;i<nCells;i++){
-			C_local(0,i) = b->xCell[i];
-			C_local(1,i) = b->yCell[i];
-			C_local(2,i) = b->zCell[i];
-		}
-
-		mpas_c.nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
-
-		Eigen::MatrixXd M_local(3, nVertices);
-		for (int i=0;i<nVertices;i++){
-			M_local(0,i) = b->xVertex[i];
-			M_local(1,i) = b->yVertex[i];
-			M_local(2,i) = b->zVertex[i];
-		}
-
-
-		mpas_c.nns = Nabo::NNSearchD::createKDTreeLinearHeap(M_local);
+		
 
 
 
@@ -220,8 +287,7 @@ void populate_block( PBlock* b,
 
 	fprintf(stderr, "xCell %f %f %d\n", b->xCell[0], b->xCell[1], b->indexToCellID[0] );
 
-	fprintf(stderr, "index to cellid size %ld\n", b->indexToCellID.size());
-	b->indexToCellID[nCells-1] = 2;
+	
 
 	// populate the recurring members	
 	int l=0;
@@ -239,6 +305,8 @@ void populate_block( PBlock* b,
 	}
 
 
+
+
 	mpas_c.indexToCellID = b->indexToCellID;
 	mpas_c.xCells = b->xCell;
 	mpas_c.yCells = b->yCell;
@@ -252,23 +320,106 @@ void populate_block( PBlock* b,
 	mpas_c.zVertex = b->zVertex;
 	mpas_c.zTop = b->zTop;
 	mpas_c.cellsOnVertex = b->cellsOnVertex;
+	mpas_c.verticesOnCell = b->verticesOnCell;
 
 	mpas_c.nCells = mpas_c.xCells.size();
 	mpas_c.nVertices = mpas_c.xVertex.size();
 
+	mpas_c.gid = b->gid;
+
+
+	for (int q=0;q<100;q++){
+		dprint("%d %f", q, mpas_c.zTop[q]);
+	}
+
+
+	C_local.resize(3, nCells);
+	for (int i=0;i<nCells;i++){
+		C_local(0,i) = mpas_c.xCells[i];
+		C_local(1,i) = mpas_c.yCells[i];
+		C_local(2,i) = mpas_c.zCells[i];
+	}
+
+	mpas_c.nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
+
+	M_local = new Eigen::MatrixXd(3, nVertices);
+	for (int i=0;i<nVertices;i++){
+		(*M_local)(0,i) = b->xVertex[i];
+		(*M_local)(1,i) = b->yVertex[i];
+		(*M_local)(2,i) = b->zVertex[i];
+	}
+
+
+	mpas_c.nns = Nabo::NNSearchD::createKDTreeLinearHeap(*M_local);
+
+	
+	if (frame_no==1 and b->gid==0){
+		
+		int lcell_0idx = 0;
+		fprintf(stderr, "velocityX at %d and gid 0\n", lcell_0idx);
+		for (int g=0;g<10;g++){
+			fprintf(stderr, "%f ", mpas_c.velocityX[lcell_0idx*nVertLevels+g]);
+		}
+		fprintf(stderr, "\n");
+
+
+		// fprintf(stderr, "verticesOnCell in main \n");
+		// for (int i=0;i<10;i++)
+		// 	fprintf(stderr, "%d\n", mpas_c.verticesOnCell[i]);
+	}
+	
+	// int max_indexToVertexID=0;
+	// fprintf(stderr, "indexToVertexID\n");
+	// if (frame_no==1){
+	// 	for (int g=0;g<nVertices;g++){
+	// 		// fprintf(stderr, "%d ", mpas_c.indexToVertexID[g]);
+	// 		if (max_indexToVertexID<mpas_c.indexToVertexID[g]){
+	// 			max_indexToVertexID = mpas_c.indexToVertexID[g];
+	// 		}
+
+	// 	}
+	// }
+	// fprintf(stderr, "max_indexToVertexID %d\n", max_indexToVertexID);
+
 	mpas_c.nVertLevels = 100; // FIX_ME: Remove the hard coding
 
-	for (int i=0; i<mpas_c.nCells; i++) { // shoudn't i vary from 1 to nCells here? then cellIndex[indexToCellID[i-1]] = i-1
-		mpas_c.cellIndex[mpas_c.indexToCellID[i]] = i;
-		// fprintf(stderr, "%d, %d\n", i, indexToCellID[i]);
-		//	std::cout<<i<<" "<<indexToCellID[i]<<" "<<cellIndex[i]<<"\n";
-	}
+	// for (int i=0; i<mpas_c.nCells; i++) { // shoudn't i vary from 1 to nCells here? then cellIndex[indexToCellID[i-1]] = i-1
+	// 	mpas_c.cellIndex[mpas_c.indexToCellID[i]] = i;
+	// 	// fprintf(stderr, "%d, %d\n", i, indexToCellID[i]);
+	// 	//	std::cout<<i<<" "<<indexToCellID[i]<<" "<<cellIndex[i]<<"\n";
+	// }
+
+
+
+	// fprintf(stderr, "indexToCellID cellIndex\n");
+	// if (frame_no==1){
+	// 	for (int g=0;g<10;g++){
+	// 		fprintf(stderr, "%d %d \n", mpas_c.indexToCellID[g], mpas_c.cellIndex[g]);
+	// 	}
+	// }
+	// fprintf(stderr, "\n");
+
+	// mapping from global to local vertex id
 	for (int i=0; i<mpas_c.nVertices; i++) {
 		mpas_c.vertexIndex[mpas_c.indexToVertexID[i]] = i;
+		mpas_c.block_vert_ids.insert(mpas_c.indexToVertexID[i]);
 		// fprintf(stderr, "%d, %d\n", i, indexToVertexID[i]);
 	}
 
-	// derive velocity on cell verticies (on only one altitude level here)
+
+	
+
+	// fprintf(stderr, "max_cell_on_vert %d\n", max_cell_on_vert);
+
+	// if (b->gid==0){
+
+	// 	for (int i=0;i<10;i++){
+	// 		// fprintf(stderr, " xCell %d %f %f %f\n", i, mpas_c.xCells[i], mpas_c.yCells[i], mpas_c.zCells[i]);
+	// 		fprintf(stderr, " xVertex %d %f %f %f\n", mpas_c.vertexIndex[i], mpas_c.xVertex[i], mpas_c.yVertex[i], mpas_c.zVertex[i]);
+	// 	}
+	// }
+
+	// derive velocity on cell verticies 
 	mpas_c.velocityXv.resize(mpas_c.nVertices*mpas_c.nVertLevels);
 	mpas_c.velocityYv.resize(mpas_c.nVertices*mpas_c.nVertLevels);
 	mpas_c.velocityZv.resize(mpas_c.nVertices*mpas_c.nVertLevels);
@@ -278,86 +429,387 @@ void populate_block( PBlock* b,
 	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3] = mpas_c.xCells[i];
 	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+1] = mpas_c.yCells[i];
 	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+2] = mpas_c.zCells[i];
-
+				int max_cell_on_vert = 0;
+	
+	/* // commenting out vertex velocity and height computation as redone  in compute_ghost_vertex_values
 	for (int i=0; i<mpas_c.nVertices; i++) {
 		//    if (cellsOnVertex[i*3] == 0 || cellsOnVertex[i*3+1] == 0 || cellsOnVertex[i*3+2] == 0) continue; // on boundary
-		int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3+2]];
+		// if (mpas_c.cellsOnVertex[i*3]>max_cell_on_vert)
+		// 	max_cell_on_vert = mpas_c.cellsOnVertex[i*3];
+		// if (mpas_c.cellsOnVertex[i*3+1]>max_cell_on_vert)
+		// 	max_cell_on_vert = mpas_c.cellsOnVertex[i*3+1];
+		// if (mpas_c.cellsOnVertex[i*3+2]>max_cell_on_vert)
+		// 	max_cell_on_vert = mpas_c.cellsOnVertex[i*3+2];
 
-		double X[3][3] = {
-			{mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2]},
-			{mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2]},
-			{mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]}
+				int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[i*3+2]];
 
-		};
 
-		double P[3] = {mpas_c.xVertex[i], mpas_c.yVertex[i], mpas_c.zVertex[i]};
 
-		double lambda[3];
-		barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
+				double X[3][3] = {
+					{mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2]},
+					{mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2]},
+					{mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]}
+				};
+
+				// if (i==2){
+				// 	fprintf(stderr, "cellsOnVertex for i=2 %d %d %d %d %d %d %f %f %f %f %f %f  %f %f %f\n", mpas_c.cellsOnVertex[i*3], mpas_c.cellsOnVertex[i*3+1], mpas_c.cellsOnVertex[i*3+2], c0, c1, c2, mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2], 
+				// 		mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2],
+				// 		mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]
+				// 		);
+				// }
+
+				// TODO: Check if the following lines can be removed since also being done in compute ghost vertex values
+
+				double P[3] = {mpas_c.xVertex[i], mpas_c.yVertex[i], mpas_c.zVertex[i]};
+
+				double lambda[3];
+				barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
 		//[i * nVertLevels + curVertLevel];
-		for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
+				for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
 
-			mpas_c.velocityXv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityX[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityX[c2*mpas_c.nVertLevels+curVertLevel];
-			mpas_c.velocityYv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityY[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityY[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityY[c2*mpas_c.nVertLevels+curVertLevel];
-			mpas_c.velocityZv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityZ[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityZ[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityZ[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.velocityXv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityX[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityX[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.velocityYv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityY[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityY[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityY[c2*mpas_c.nVertLevels+curVertLevel];
+					mpas_c.velocityZv[i*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityZ[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityZ[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityZ[c2*mpas_c.nVertLevels+curVertLevel];
 
-			mpas_c.zTopVertex[mpas_c.nVertLevels*i + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+					mpas_c.zTopVertex[mpas_c.nVertLevels*i + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+
+					// if (i==2 && curVertLevel==50){
+					// fprintf(stderr, "cur velocity level 50 at vertex for i=2 %f %f %f\n", 
+					// 	mpas_c.velocityXv[i*mpas_c.nVertLevels+curVertLevel], 
+					// 	mpas_c.velocityYv[i*mpas_c.nVertLevels+curVertLevel],
+					// 	mpas_c.velocityZv[i*mpas_c.nVertLevels+curVertLevel]
+					// 	);
+
+					// 	fprintf(stderr, "velocityX l=50 i=2 %f\n", mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel]);
+					// }
 
 
-		}
-
-
+				}
 	}
-
-
-
-
-
-
+	*/
 
 
 }
 
+
+
+		void enq_halo_info(mpaso &mpas_g, mpaso &mpas_c, int cur_bid, int nprocs, 
+			PBlock*                              b,
+			const diy::Master::ProxyWithLink&   cp,
+			const diy::Assigner& assigner){
+
+	std::vector<std::set<int>> ghost_cell_ids; // 
+
+	// std::vector<ghost_req> ghost_cell_reqs; // 
+	
+	
+
+	ghost_cell_ids.resize(nprocs);
+	
+	// ghost_cell_reqs.resize(nprocs);
+
+
+
+
+	// populate vector of required cell ids
+
+	for (int i=0; i<mpas_c.nCells; i++){
+		int cur_cell_1gid = mpas_c.indexToCellID[i];
+
+		for (int j=0; j<mpas_g.cell_g_neighbors[cur_cell_1gid].size(); j++){
+			
+			// check if the current neighbor is in same partition/block
+			int nbr_cell_1gid = mpas_g.cell_g_neighbors[cur_cell_1gid][j];
+
+			int cell_bid = mpas_g.cellID_to_bid[nbr_cell_1gid-1];
+
+			if (cell_bid != cur_bid){
+				ghost_cell_ids[cell_bid].insert(nbr_cell_1gid);
+				
+
+			}
+
+		}
+
+
+
+	}
+	
+
+	// remote queue
+	for (int i=0;i<ghost_cell_ids.size();i++){
+
+		if (ghost_cell_ids[i].size()>0){
+			// fprintf(stderr, "\n");
+			// for ( auto it = ghost_cell_ids[i].begin(); it != ghost_cell_ids[i].end(); it++ )
+			// 	fprintf(stderr, "%d, ",*it);
+			// fprintf(stderr, "\n");
+
+			std::vector<int> ghost_cell_ids_vec;
+			for ( auto it = ghost_cell_ids[i].begin(); it != ghost_cell_ids[i].end(); it++ )
+				ghost_cell_ids_vec.push_back(*it);
+
+			// ghost_cell_reqs[i].requester = cur_bid;
+			fprintf(stderr, "ghost cell id size %ld\n", ghost_cell_ids[i].size());
+			ghost_cell_ids_vec.push_back(cur_bid); // putting the current block id as last element in list
+
+			int dest_gid            = i;
+			int dest_proc           = assigner.rank(dest_gid);
+			diy::BlockID dest_block = {dest_gid, dest_proc};
+			cp.enqueue(dest_block, ghost_cell_ids_vec);
+			// cp.enqueue(dest_block, 1 );
+			fprintf(stderr, "enque info %d %d %d\n", i, dest_gid, dest_proc);
+
+		}
+		
+	}
+
+
+}
+
+void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy::Assigner& assigner, mpaso mpas_c){
+
+	vector<int> in;
+	
+
+	cp.incoming(in);
+	
+	fprintf(stderr, "in size %ld\n", in.size());
+	for (size_t i = 0; i < in.size(); i++)
+		if (cp.incoming(in[i]).size())
+		{	
+			std::vector<int> ghost_cell_ids;
+			
+			cp.dequeue(in[i],ghost_cell_ids);
+			fprintf(stderr, "dequeued %ld\n", ghost_cell_ids.size());
+			int dest_gid = ghost_cell_ids.back();
+			ghost_cell_ids.pop_back();
+
+			// for ( auto it = ghost_cell_ids.begin(); it != ghost_cell_ids.end(); it++ )
+			// 	fprintf(stderr, "%d ", *it);
+
+			// TODO Deal with local variables inside loops
+			// gather cell info
+			std::vector<ghost_point> ghost_info;
+			for (int j=0;j<ghost_cell_ids.size();j++){
+				ghost_point gp;
+
+
+
+				int cellIdxLocal = mpas_c.cellIndex[ghost_cell_ids[j]];
+
+				// include this cell info in ghost point
+				gp.cgid = ghost_cell_ids[j];
+				int lgid = mpas_c.cellIndex[gp.cgid];
+				gp.cx = mpas_c.xyzCell[3*lgid];
+				gp.cy = mpas_c.xyzCell[3*lgid+1];
+				gp.cz = mpas_c.xyzCell[3*lgid+2];
+
+
+
+				// gp.vel_cx.insert(gp.vel_cx.end(), &mpas_c.velocityX[lgid*mpas_c.nVertLevels], &mpas_c.velocityX[(1+lgid)*mpas_c.nVertLevels]);
+				// gp.vel_cy.insert(gp.vel_cy.end(), &mpas_c.velocityY[lgid*mpas_c.nVertLevels], &mpas_c.velocityY[(1+lgid)*mpas_c.nVertLevels]);
+				// gp.vel_cz.insert(gp.vel_cz.end(), &mpas_c.velocityZ[lgid*mpas_c.nVertLevels], &mpas_c.velocityZ[(1+lgid)*mpas_c.nVertLevels]);
+				for (int k=0;k<mpas_c.nVertLevels;k++){
+					gp.vel_cx[k] = mpas_c.velocityX[lgid*mpas_c.nVertLevels + k];
+					gp.vel_cy[k] = mpas_c.velocityY[lgid*mpas_c.nVertLevels + k];
+					gp.vel_cz[k] = mpas_c.velocityZ[lgid*mpas_c.nVertLevels + k];
+					gp.zTop[k] = mpas_c.zTop[lgid*mpas_c.nVertLevels + k];
+				}
+
+
+
+				int ngvid=-1; // neighbor global vertex id
+				// get neighboring vertices
+				for (int k=0;k<6;k++){
+					// TODO: investigate crash on setting following to -1
+					gp.vert_gids[k] = -1; // initially assume vertex not present
+					
+					
+					ngvid = mpas_c.verticesOnCell[lgid*6+k];
+
+
+					// if (b->gid==1){
+					// 	fprintf(stderr, "spacking vertex %d %d\n", gp.cgid, ngvid);
+
+					// 	} 
+					
+
+					// if vertex present in partition. include this vertex's info in ghost point.
+					if (mpas_c.vertexIndex.find(ngvid)!=mpas_c.vertexIndex.end()){
+						
+
+
+						
+						int nlvid = mpas_c.vertexIndex[ngvid]; // get local vid
+
+						gp.vert_gids[k] = ngvid; // store global vertex id
+						gp.vert_x[k] = mpas_c.xVertex[nlvid];
+						gp.vert_y[k] = mpas_c.yVertex[nlvid];
+						gp.vert_z[k] = mpas_c.zVertex[nlvid];
+
+						// populate vertex neighbor cell-ids
+						gp.cellsOnVertex[k*3] = mpas_c.cellsOnVertex[nlvid*3];
+						gp.cellsOnVertex[k*3+1] = mpas_c.cellsOnVertex[nlvid*3+1];
+						gp.cellsOnVertex[k*3+2] = mpas_c.cellsOnVertex[nlvid*3+2];
+
+						// if (ngvid==14425){
+						// 		fprintf(stderr, "found inend1 14425, %d %d %f\n", k, ngvid, gp.vert_x[k]);
+						// 		}
+
+					}
+
+				}
+
+				// push gp to ghost_info
+				ghost_info.push_back(gp);
+
+
+			}
+
+			
+			
+
+
+
+
+			// queue cell info for exchange
+			
+			// if (cp.gid()==0)
+			// 	dest_gid=1;
+			// else
+			// 	dest_gid=0;
+			int dest_proc           = assigner.rank(dest_gid);
+			diy::BlockID dest_block = {dest_gid, dest_proc};
+			cp.enqueue(dest_block, ghost_info);
+
+
+		}
+
+		fprintf(stderr, "here\n");
+
+	}
+
+	void deq_halo_info(PBlock* b, const diy::Master::ProxyWithLink& cp, mpaso &mpas_c){
+		vector<int> in;
+
+
+		cp.incoming(in);
+
+		fprintf(stderr, "in size %ld\n", in.size());
+		for (size_t i = 0; i < in.size(); i++){
+			std::vector<ghost_point> ghost_info;
+			if (cp.incoming(in[i]).size())
+			{	
+				cp.dequeue(in[i],ghost_info);
+			// fprintf(stderr, "dequeued again %ld %d %f %f\n", ghost_info.size(), ghost_info[0].cgid, ghost_info[0].cx, ghost_info[0].vel_cx[1]);
+
+			// append xCell, yCell, zCell, associated vertices pos + indices, create ghost index map
+				for (int j=0;j<ghost_info.size(); j++ ){
+
+				// process the cell
+					mpas_c.xyzCell.push_back(ghost_info[j].cx);
+					mpas_c.xyzCell.push_back(ghost_info[j].cy);
+					mpas_c.xyzCell.push_back(ghost_info[j].cz);
+					std::copy(ghost_info[j].vel_cx, ghost_info[j].vel_cx+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityX));
+					std::copy(ghost_info[j].vel_cy, ghost_info[j].vel_cy+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityY));
+					std::copy(ghost_info[j].vel_cy, ghost_info[j].vel_cy+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityY));
+					std::copy(ghost_info[j].zTop, ghost_info[j].zTop+mpas_c.nVertLevels, std::back_inserter(mpas_c.zTop));
+
+				// update indexToCellID, cellIndex
+					mpas_c.indexToCellID.push_back(ghost_info[j].cgid);
+					mpas_c.cellIndex[ghost_info[j].cgid] = mpas_c.indexToCellID.size()-1;
+
+				// update ghost cell ids into std::set
+
+					
+
+					for (int k=0;k<6;k++){
+						if (ghost_info[j].vert_gids[k]>-1){
+						// process associated vertex
+
+
+							
+
+						// vertexIndex
+							int vgid = ghost_info[j].vert_gids[k]; 
+
+							if (mpas_c.vertexIndex.count(vgid) == 0){
+
+								
+								
+								mpas_c.vertexIndex[vgid] = (int) mpas_c.xVertex.size();
+
+								if (ghost_info[j].vert_gids[k]==14425){
+									dprint("found inend 14425, %d %d %f %f %f %d %d %d", mpas_c.vertexIndex[vgid], k, ghost_info[j].vert_x[k], ghost_info[j].vert_y[k], ghost_info[j].vert_z[k], ghost_info[j].cellsOnVertex[k*3], ghost_info[j].cellsOnVertex[k*3+1], ghost_info[j].cellsOnVertex[k*3]+2);
+								}
+
+								// // vertex positions
+								mpas_c.xVertex.push_back(ghost_info[j].vert_x[k]);
+								mpas_c.yVertex.push_back(ghost_info[j].vert_y[k]);
+								mpas_c.zVertex.push_back(ghost_info[j].vert_z[k]);
+
+								// // cellOnVertex?*not needed for pure ghost vertices. needed for shared ghost. keep for all.
+								mpas_c.cellsOnVertex.push_back(ghost_info[j].cellsOnVertex[k*3]);
+								mpas_c.cellsOnVertex.push_back(ghost_info[j].cellsOnVertex[k*3+1]);
+								mpas_c.cellsOnVertex.push_back(ghost_info[j].cellsOnVertex[k*3+2]);
+
+							} 
+
+
+						}
+					}
+
+				}
+
+
+			}
+		}
+
+	// compute velocities at shared vertices after halo exchange. Only native and shared.
+	}
+
+
 // enqueue remote data
 // there is still a link, but you can send to any BlockID = (gid, proc)
-void remote_enq(
+	void remote_enq(
 		PBlock*                              b,
 		const diy::Master::ProxyWithLink&   cp,
 		const diy::Assigner&                assigner)
-{
+	{
 	// as a test, send my gid to block 1 gids away (in a ring), which is outside the link
 	// (the link has only adjacent block gids)
-	int my_gid              = cp.gid();
-	int dest_gid            = (my_gid + 1) % assigner.nblocks();
-	int dest_proc           = assigner.rank(dest_gid);
-	diy::BlockID dest_block = {dest_gid, dest_proc};
+		int my_gid              = cp.gid();
+		int dest_gid            = (my_gid + 1) % assigner.nblocks();
+		int dest_proc           = assigner.rank(dest_gid);
+		diy::BlockID dest_block = {dest_gid, dest_proc};
 
 	// b->values[0] = my_gid;
 
 	// cp.enqueue(dest_block, my_gid);
 
-	std::vector<EndPt> endptvec;
-	endptvec.resize(3);
+		std::vector<EndPt> endptvec;
+		endptvec.resize(3);
 
-	cp.enqueue(dest_block, endptvec);
-}
+		cp.enqueue(dest_block, endptvec);
+	}
 
 // dequeue remote data
 // there is still a link, but exchange(remote = true) exchanged messages from any block
-void remote_deq(PBlock* b, const diy::Master::ProxyWithLink& cp)
-{
-	std::vector<int> incoming_gids;
-	cp.incoming(incoming_gids);
-	for (size_t i = 0; i < incoming_gids.size(); i++)
-		if (cp.incoming(incoming_gids[i]).size())
-		{
-			vector<EndPt> recvd_data;
-			cp.dequeue(incoming_gids[i], recvd_data);
-			fmt::print(stderr, "Remote dequeue: gid {} received value {} from gid {}\n",
+	void remote_deq(PBlock* b, const diy::Master::ProxyWithLink& cp)
+	{
+		std::vector<int> incoming_gids;
+		cp.incoming(incoming_gids);
+		for (size_t i = 0; i < incoming_gids.size(); i++)
+			if (cp.incoming(incoming_gids[i]).size())
+			{
+				vector<EndPt> recvd_data;
+				cp.dequeue(incoming_gids[i], recvd_data);
+				fmt::print(stderr, "Remote dequeue: gid {} received value {} from gid {}\n",
 					cp.gid(), recvd_data[0].pid, incoming_gids[i]);
-			fprintf(stderr, "Received vector: %d\n", 3);
+				fprintf(stderr, "Received vector: %d\n", 3);
+			}
 		}
-}
 
 
 
@@ -365,34 +817,36 @@ void remote_deq(PBlock* b, const diy::Master::ProxyWithLink& cp)
 
 
 // consumer
-void con(Decaf* decaf)
-{      	
-	int max_rounds = 2;
-	int max_steps = 1000;
+		void con(Decaf* decaf)
+		{      	
+			int max_rounds = 2;
+	// int max_steps = 1000;
 
-	mpaso mpas_c, mpas_g;
-	vector< pConstructData > in_data;
+			int max_steps = 1;
 
-
-	diy::mpi::communicator world(decaf->con_comm_handle());
-	fprintf(stderr, "diy world size: %d", world.size() );
-
-	diy::FileStorage storage("./DIY.XXXXXX");
-	int                       nblocks    = world.size();
-	int                       threads    = 1;
-	int                       mem_blocks = -1;
-
-	diy::Master               master(world,
-			threads,
-			mem_blocks,
-			&create_block,
-			&destroy_block,
-			&storage,
-			&save_block,
-			&load_block);
+			mpaso mpas_c, mpas_g;
+			vector< pConstructData > in_data;
 
 
-	diy::RoundRobinAssigner assigner(world.size(), nblocks);
+			diy::mpi::communicator world(decaf->con_comm_handle());
+			fprintf(stderr, "diy world size: %d", world.size() );
+
+			diy::FileStorage storage("./DIY.XXXXXX");
+			int                       nblocks    = world.size();
+			int                       threads    = 1;
+			int                       mem_blocks = -1;
+
+			diy::Master               master(world,
+				threads,
+				mem_blocks,
+				&create_block,
+				&destroy_block,
+				&storage,
+				&save_block,
+				&load_block);
+
+
+			diy::RoundRobinAssigner assigner(world.size(), nblocks);
 
 	// this example creates a linear chain of blocks with links between adjacent blocks
 	std::vector<int> gids;                     // global ids of local blocks
@@ -429,12 +883,21 @@ void con(Decaf* decaf)
 	}
 
 
+	// if (b->gid==0){
+	// 	int i = 0;
 
+	// 	char hostname[256];
+	// 	gethostname(hostname, sizeof(hostname));
+	// 	printf("PID %d on %s ready for attach\n", getpid(), hostname);
+	// 	fflush(stdout);
+	// 	while (0 == i)
+	// 		sleep(5);
+	// }
 
 
 	std::string ip_file = "graph.topology";
 	mpas_g.generate_domain_decomposition_graph(ip_file, world.size());	
-
+	mpas_g.read_cell_g_neighbors();
 	// (remote) exchange some data outside the links
 	//	master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp)
 	//		{ 	
@@ -468,29 +931,72 @@ void con(Decaf* decaf)
 				// master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp)
 				//                 {
 				//                 populate_block(b, cp, assigner, data_bar ); }); // seed/deque particles, update vector fields, trace the epoch, and enqueue unfinished particles
-				int frame_no = (int) data_bar[13];
+				int frame_no = (int) data_bar[14];
 
 				if (frame_no==1){
 
 					streamlines slines;
-					
+					mpas_c.compute_cellIndex(b->gid, world.size());
 					// TODO  premature stopping if work completed before max_rounds 
 					populate_block(b, pgid, data_bar, &mpas_g, world, mpas_c);
+
+					// identify and enque halo cells
+					master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp)
+						{ enq_halo_info(mpas_g, mpas_c, b->gid, world.size(), 
+							b, cp, assigner); });
+					
+					//rexchange
+					bool remote = true;
+					master.exchange(remote);
+					// process the halo request
+					master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp){
+						process_halo_req(b, cp, assigner, mpas_c);
+					});
+					// rexchange
+					master.exchange(remote);
+
+					//deq_halo_info
+					master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp){
+						deq_halo_info(b, cp, mpas_c);
+					});
+
+					if (frame_no==1 && b->gid==0){
+
+						int cid = mpas_c.cellIndex[4462];
+
+						fprintf(stderr, "verticesOnCell 4462\n");
+						
+						for (int u=2;u<3;u++){
+							int lvid = mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]];
+							fprintf(stderr, "%d %d %f %f %f, ", mpas_c.verticesOnCell[cid*6+u], lvid, mpas_c.xVertex[lvid], mpas_c.yVertex[lvid], mpas_c.zVertex[lvid]);
+						}
+						dprint("\nprinting vertex local ids (vlids)");
+						for (int u=0;u<6;u++){
+							fprintf(stderr, "%d, ", mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]]);
+						}
+						fprintf(stderr, "\n");
+
+
+					}
+
+					compute_ghost_vertex_values(mpas_c);
+
 					int stop = (max_rounds ? max_rounds : 1);
 					int incr = (max_rounds ? 1 : 0);
 					for (int round = 0; round < stop; round += incr)
 					{
 
 						master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp)
-								{
+						{
 
-								parallel_streamlines(mpas_g, mpas_c, round, *b, max_steps, cp,  assigner, world);
-								});
+							parallel_streamlines(mpas_g, mpas_c, round, *b, max_steps, cp,  assigner, world);
+						});
 						bool remote = true;
 						master.exchange(remote);	
 					}
-					bio.write_cell_centers(pgid, world, b->xCell);
-					bio.write_particle_traces(pgid, world, *b, max_steps);
+
+					//bio.write_cell_centers(pgid, world, b->xCell);
+					bio.write_particle_traces(pgid, world, *b, max_steps, mpas_c);
 				}	
 
 			}else{ 
@@ -523,7 +1029,10 @@ void con(Decaf* decaf)
 int main(){
 
 
-	std::cout<<"starting mpas consumer\n";
+
+	dprint("starting mpas consumer");
+
+
 
 	// define the workflow
 	Workflow workflow;
@@ -539,6 +1048,7 @@ int main(){
 	con(decaf);
 
 	// cleanup
+	delete M_local;
 	delete decaf;
 	MPI_Finalize();
 
@@ -577,13 +1087,49 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 	Eigen::VectorXd q(3);
 	q<<X[0], X[1], X[2];
-	mpas_c.nns->knn(q, nearest_idx, dists2, K);
+	// q << -5682112.802109 , -619878.622472 , 2814587.637284;
+
+	
+
+	// mpas_c.nns->knn(q, nearest_idx, dists2, K, 0, Nabo::NNSearchF::SORT_RESULTS);
+	
 
 	// get nearest cell neighbor ids using mpas_c
 	Eigen::VectorXi nearest_cell_idx(1);
 	Eigen::VectorXd dists2_cell(1);
-	mpas_c.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1);
+	mpas_c.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS);
 
+	int clid = nearest_cell_idx[0]; // cell local id
+	for (int i=0;i<K;i++){
+		int gvid = mpas_c.verticesOnCell[clid*6+i];
+		nearest_idx[i] = mpas_c.vertexIndex[gvid];
+	}
+
+	// if (mpas_c.gid == 0){
+	// 	dprint("X %f %f %f", X[0], X[1], X[2]);
+	// 	dprint("nearest_cell_idx for gid0 %d %f %f %f %d %f %f %f", nearest_cell_idx[0], 
+	// 		mpas_c.xCells[nearest_cell_idx[0]], mpas_c.yCells[nearest_cell_idx[0]], mpas_c.zCells[nearest_cell_idx[0]], mpas_c.cellIndex[4462], mpas_c.xCells[mpas_c.cellIndex[4462]], mpas_c.yCells[mpas_c.cellIndex[4462]], mpas_c.zCells[mpas_c.cellIndex[4462]]);
+
+	// }
+
+
+
+	// if (mpas_c.gid == 0){
+	// 	for (int i=0;i<K;i++){
+	// 	// nearest_idx_array[i] = nearest_idx[i];
+	// 	// fprintf(stderr, "nearest %d %f %f %f %f\n", nearest_idx_array[i], mpas_c.xVertex[i], 
+	// 	// 	mpas_c.yVertex[i], mpas_c.zVertex[i], dists2[i]);
+
+	// 	// nearest_cell_idx -> local. get global cell idx. global vert neighbors, local vert neighbors.
+	// 		int idx = nearest_cell_idx[0];
+	// 		int gcid = mpas_c.indexToCellID[idx];
+	// 		int gvid = mpas_c.verticesOnCell[idx*6+i];
+	// 		int lvid = mpas_c.vertexIndex[gvid];
+
+	// 		dprint("nverts %d %d %d %d %f %f %f", idx, gcid, gvid, lvid, mpas_c.xVertex[lvid], mpas_c.yVertex[lvid], mpas_c.zVertex[lvid]);
+
+	// 	}
+	// }
 
 
 	// interpolate vertically and get positions and velocity (in values)
@@ -595,6 +1141,7 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 	double botom_boun = mpas_c.zTop[mpas_c.nVertLevels*nearest_cell_idx[0]+99];
 
+	
 
 	if (depth> top_boun || depth< botom_boun){
 		// terminate flow line
@@ -606,8 +1153,6 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 		// interpolate horizontally
 		if (!interpolate_horizontally(X[0], X[1], X[2], values, c_vel))
 			return false;
-
-
 	}
 
 	// if (global_gid==1 ){
@@ -623,16 +1168,16 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 		//cout<<"inside  get_vel "<<nearest_idx[0]<<" "<<nearest_idx[1]<<" "<<nearest_idx[2]<<" "<<nearest_idx[3]<<" "<<nearest_idx[4]<<" "<<nearest_idx[5]<<" "<<c_vel<<" "<<global_gid<<" "<<mpas_c.velocityXv[5539]<<" "<<mpas_c.velocityXv[909]<<" "<<mpas_c.velocityXv[5565]<<" "<<mpas_c.velocityXv[1899]<<" "<<mpas_c.velocityXv[1880]<<" "<<mpas_c.velocityXv[7875]<<"\n";
 	// }
-	return true;
+	return true; // true implies within global domain vertically
 
 }
 
 bool rk1_mpas(mpaso &mpas_g,
-		mpaso &mpas_c,
-		double *X,
-		double h,
-		double *Y,
-		bool &in_global_domain)
+	mpaso &mpas_c,
+	double *X,
+	double h,
+	double *Y,
+	bool &in_global_domain)
 {
 
 	// check if inside global domain
@@ -647,7 +1192,7 @@ bool rk1_mpas(mpaso &mpas_g,
 
 	}else{
 		in_global_domain = false;
-		return false; // needs to be true
+		return false; // needs to be true for continued advection
 	}	
 }
 
@@ -659,6 +1204,7 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 
 	double dc_t, dc_c, ratio; //dist from center of earth of top and current layer
 
+	
 	// if first iteration, then seed
 
 	if (round==0){
@@ -691,9 +1237,10 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 				}
 
 				dc_c = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+seed_level_ids[j]];
-				dc_t = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+0];
-				ratio = dc_c/dc_t;
+				// dc_t = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+0];
 				// fprintf(stderr, "ratio %f\n", ratio);
+				// ratio = dc_c/dc_t;
+				ratio = dc_c/mpas_c.radius;
 
 				EndPt p;
 				p.pid = mpas_c.init;
@@ -707,6 +1254,7 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 					p[0] = -2089982.455199 * ratio;
 					p[1] = 3032836.244409 * ratio;
 					p[2] = -5198695.665453 * ratio;
+					dprint("seed %f %f %f", p[0], p[1], p[2]); 
 
 				}
 
@@ -718,7 +1266,7 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 
 			}
 		}
-	
+
 		
 
 	}
@@ -813,13 +1361,13 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 	// send off unfinished segments using rexchange
 
 	for (map<diy::BlockID, vector<EndPt> >::const_iterator it =
-			outgoing_endpts.begin(); it != outgoing_endpts.end(); it++)
+		outgoing_endpts.begin(); it != outgoing_endpts.end(); it++)
 		cp.enqueue(it->first, it->second);
 
 }
 
 
-void block_io::write_particle_traces(int gid, const diy::mpi::communicator &world, PBlock &b, int max_steps){
+void block_io::write_particle_traces(int gid, const diy::mpi::communicator &world, PBlock &b, int max_steps, mpaso &mpas_c){
 
 	int ret, ncfile, nprocs, rank;
 	char filename[256], buf[13] = "Hello World\n";
@@ -876,7 +1424,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	int pos_dims[ndims_pos];
 
 	ret = ncmpi_create(world, filename,
-			NC_CLOBBER|NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
+		NC_CLOBBER|NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
 	if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
 
 	// define dimensions
@@ -939,7 +1487,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	double *buffer = (double*) malloc(buf_len * sizeof(double));
 	double *buffer_y = (double*) malloc(buf_len * sizeof(double));
 	double *buffer_z = (double*) malloc(buf_len * sizeof(double));
- 
+
 	// for (int i=0; i<buf_len; i++) {
 	//         buffer[i] = (double)rank;
 	//         fprintf(stderr, "bufval %f\n", buffer[i]);
@@ -981,35 +1529,142 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 
 	
 	
-	if (rank == 0){
+	if (b.gid == 0){
+
+
+
+		int dimid_nVertices, dimid_nVertexAllLayers, varid_xVertex, 
+		varid_yVertex, varid_zVertex, 
+		varid_velocityXv, varid_velocityYv, varid_velocityZv, varid_zTopVertex;
+		size_t nVertices = mpas_c.xVertex.size();
+		size_t nVertexAllLayers = 100 * nVertices;
+
+		// create buffer arrays
+		double *xVertex, *xVelocityXv;
+		xVertex = new double [nVertices];
+		xVelocityXv = new double [nVertexAllLayers];
+
+
+
 
 		ret = ncmpi_open(MPI_COMM_SELF, filename,
-				NC_WRITE|NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
+			NC_WRITE|NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
 		if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
 		
 		ret = ncmpi_redef(ncfile); /* enter define mode */
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_dim(ncfile, "nVertices", nVertices, &dimid_nVertices);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		
+		ret = ncmpi_def_dim(ncfile, "nVertexAllLayers", nVertexAllLayers, &dimid_nVertexAllLayers);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		const size_t start_vertices[1] = {0}, size_vertices[1] = {nVertices};
+		ret = ncmpi_def_var(ncfile, "xVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		ret = ncmpi_def_var(ncfile, "yVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_yVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		ret = ncmpi_def_var(ncfile, "zVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_zVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+
+		
+		const size_t start_velocityV[1] = {0}, size_velocityV[1] = {nVertexAllLayers};
+		ret = ncmpi_def_var(ncfile, "velocityVx", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "velocityVy", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityYv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "velocityVz", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityZv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "zTopVertex", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_zTopVertex);
 		if (ret != NC_NOERR) handle_error(ret, __LINE__);
 		
 		//	Next define trace_sizes global
 		ret = ncmpi_def_var(ncfile, "trace_sizes_global", NC_INT, 1, &dimid_p, &varid_trace_sizes_global);
 		if (ret != NC_NOERR) handle_error(ret, __LINE__);
 
-	
+		
+
+
 		// end define mode
 		ret = ncmpi_enddef(ncfile);
 		if (ret != NC_NOERR) handle_error(ret, __LINE__);
 		
-		fprintf(stderr, "here \n");
+		
 
 		MPI_Offset start[1], count[1];
 		start[0]=0, count[0]=b.global_trace_sizes.size();
 		ret = ncmpi_put_vara_int_all(ncfile, varid_trace_sizes_global, start, count, trace_sizes_global);
 		if (ret != NC_NOERR) handle_error(ret, __LINE__);	
-		fprintf(stderr, "crossed \n");
+
+		// xVertex copy to buffer arrays and write variable 
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.xVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityXv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_xVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityXv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		// yVertex copy to buffer arrays and write variable
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.yVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityYv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_yVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityYv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		// zVertex copy to buffer arrays and write variable
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.zVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityZv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_zVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityZv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.zTopVertex[i];
+		}
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_zTopVertex, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		
+
+
 
 		// close file
 		ret = ncmpi_close(ncfile);
 		if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
+
+		// free buffer arrays
+		delete [] xVertex;
+		delete [] xVelocityXv;
 
 
 	}

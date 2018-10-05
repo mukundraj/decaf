@@ -36,6 +36,93 @@ int mpaso::get_bid_for_pt(double *coords){
 	return bid;		
 }
 
+// TODO: check if following function is needed. Why not use indexToCellID like for vertices?
+// mapping from global cell id to local cell id
+void mpaso::compute_cellIndex(int cblock, int nblocks){
+
+	// now populate the cellID_to_bid vector
+	std::string ip_file = "graph.info.part."+itos(nblocks);
+	std::ifstream file;
+	file.clear();
+	
+	int g_idx=0, cblock_idx=0, temp;
+	file.open(ip_file);
+
+	std::string line;
+
+	while (std::getline(file,line)) { 
+		std::istringstream iss(line);
+		iss >>  temp;
+		// fprintf(stderr, " temp %d %d\n", temp, cblock);
+		if (temp==cblock){
+			cellIndex[g_idx+1] = cblock_idx;
+			cblock_idx++;
+		}
+
+
+		g_idx++; 
+	}
+	// while ( !file.eof ()  ) {   
+	// 	file >> temp;
+	// 	fprintf(stderr, " temp %d\n", temp);
+	// 	if (temp==cblock){
+	// 		cellIndex[g_idx+1] = 10;//cblock_idx;
+	// 		cblock_idx++;
+	// 	}
+
+
+	// 	g_idx++; 
+		
+	// }
+	file.close();
+	// cellID_to_bid.resize(ctr-1);
+	// file.open(ip_file);
+	// ctr=0;
+	// while (std::getline(file,line)) { 
+	// 	std::istringstream iss(line);
+	// 	iss >>  cellID_to_bid[ctr];
+	// 	ctr++;
+	// }
+	// file.close();
+
+}
+
+void mpaso::read_cell_g_neighbors(){
+
+	std::string ip_file = "graph.info";
+
+	std::ifstream file(ip_file.c_str());
+	// file.clear();
+	std::string line;
+	int temp;
+	std::getline(file,line); // reading the header line
+	std::istringstream iss(line);
+	iss >>  temp;
+	cell_g_neighbors.resize(temp+1); 
+
+
+	int cur_cell_1idx = 1;
+	while (std::getline(file,line)) { 
+		std::istringstream iss2(line);
+		while(iss2 >>  temp){
+
+			cell_g_neighbors[cur_cell_1idx].push_back(temp);
+		}
+		cur_cell_1idx++;
+		
+		// fprintf(stderr, " cur_cell_1idx %d\n", cur_cell_1idx);
+		
+	}
+
+	// for (int i=0;i<cell_g_neighbors.size();i++){
+	// 	fprintf(stderr, "%d %ld\n", i, cell_g_neighbors[i].size());
+	// }
+	// fprintf(stderr, "%d %d %d %d %d %d\n", cell_g_neighbors[7234][0], cell_g_neighbors[7234][1], 
+	// 					cell_g_neighbors[7234][2], cell_g_neighbors[7234][3], cell_g_neighbors[7234][4], cell_g_neighbors[7234][5]);
+
+
+}
+
 void mpaso::generate_domain_decomposition_graph(std::string &filename, int nblocks){
 
 	fprintf(stderr, "%s \n", filename.c_str());
@@ -154,6 +241,7 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 		if (frame_no==1){
 		//	std::cout<<"populating frame 1  values "<<frame_no<<"\n";
 			cellsOnVertex.resize(nVertices*3);
+			// verticesOnCell.resize(nCells*6);
 			xCells.resize(nCells);
 			yCells.resize(nCells);
 			zCells.resize(nCells);
@@ -198,6 +286,8 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 				}
 				l++;	
 			}
+
+			
 
 		}
 
@@ -278,10 +368,7 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 		barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
 		//[i * nVertLevels + curVertLevel];
 		for (int curVertLevel=0;curVertLevel<nVertLevels; curVertLevel++){
-			//        velocityXv[curVertLevel*nVertLevels+i] = lambda[0] * velocityX[c0*nVertLevels+curVertLevel] + lambda[1] * velocityX[c1*nVertLevels+curVertLevel] + lambda[2] * velocityX[c2*nVertLevels+curVertLevel];
-			//        velocityYv[curVertLevel*nVertLevels+i] = lambda[0] * velocityY[c0*nVertLevels+curVertLevel] + lambda[1] * velocityY[c1*nVertLevels+curVertLevel] + lambda[2] * velocityY[c2*nVertLevels+curVertLevel];
-			//        velocityZv[curVertLevel*nVertLevels+i] = lambda[0] * velocityZ[c0*nVertLevels+curVertLevel] + lambda[1] * velocityZ[c1*nVertLevels+curVertLevel] + lambda[2] * velocityZ[c2*nVertLevels+curVertLevel];
-
+		
 			velocityXv[i*nVertLevels+curVertLevel] = lambda[0] * velocityX[c0*nVertLevels+curVertLevel] + lambda[1] * velocityX[c1*nVertLevels+curVertLevel] + lambda[2] * velocityX[c2*nVertLevels+curVertLevel];
 			velocityYv[i*nVertLevels+curVertLevel] = lambda[0] * velocityY[c0*nVertLevels+curVertLevel] + lambda[1] * velocityY[c1*nVertLevels+curVertLevel] + lambda[2] * velocityY[c2*nVertLevels+curVertLevel];
 			velocityZv[i*nVertLevels+curVertLevel] = lambda[0] * velocityZ[c0*nVertLevels+curVertLevel] + lambda[1] * velocityZ[c1*nVertLevels+curVertLevel] + lambda[2] * velocityZ[c2*nVertLevels+curVertLevel];

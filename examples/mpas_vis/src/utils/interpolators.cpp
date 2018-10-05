@@ -1,5 +1,21 @@
 #include "interpolators.h"
 #include <iostream>
+#include "mpaso.h"
+
+// https://www.geeksforgeeks.org/program-to-find-equation-of-a-plane-passing-through-3-points/
+// https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
+
+// needs zTopVertices (to compute planes), X, 
+// outputs the cell vertex x,y,z and the vx, vy, vz for those positions
+void interpolate_vertically2(mpaso mpas_c, double *X, std::vector<double> &nearest_idx, std::vector<double> &values){
+
+    // identify lower and upper layer indices
+
+    //  compute distance from lower layer and ratio
+
+    //  interpolate positions and velocities
+
+}
 
 // *** need to linearly interpolate positions( x, y and z) and values ***
 
@@ -34,6 +50,8 @@ void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex,
         bot_idx = bin_search_index(zTopVertex, nVertLevels*vert_id,nVertLevels*vert_id+nVertLevels, depth);// pass depth
         bot_idx = bot_idx % nVertLevels;
         top_idx = bot_idx - 1;
+
+
 
         //        std::cout<<bot_idx<<" "<<top_idx<<"\n";
 

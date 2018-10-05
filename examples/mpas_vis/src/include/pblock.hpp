@@ -136,6 +136,7 @@ struct PBlock
 	vector<double> zVertex; 	//10
 	vector<double> zTop; 		//11
 	vector<int> cellsOnVertex; 	//12
+    vector<int> verticesOnCell; //13
 
 	 vector<Segment> segments; // finished segments of particle traces
 	 vector<int> global_trace_sizes; // latest known size (length) of each block particle to id early finishes 

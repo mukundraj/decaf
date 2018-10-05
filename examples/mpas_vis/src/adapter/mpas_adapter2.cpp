@@ -29,8 +29,8 @@ pConstructData container;
 
 double *velocityX, *velocityY, *velocityZ, *zTop;
 int n_velocityX, n_velocityY, n_velocityZ, n_zTop;
-int *indexToCellID, n_indexToCellID, *indexToVertexID, n_indexToVertexID, *cellsOnVertex, n_cellsOnVertex;
-std::vector<double> db_indexToCellID, db_indexToVertexID, db_cellsOnVertex;
+int *indexToCellID, n_indexToCellID, *indexToVertexID, n_indexToVertexID, *cellsOnVertex, n_cellsOnVertex, *verticesOnCell, n_verticesOnCell;
+std::vector<double> db_indexToCellID, db_indexToVertexID, db_cellsOnVertex, db_verticesOnCell;
 double *xCell, *yCell, *zCell, *xVertex, *yVertex, *zVertex;
 int n_xCell, n_yCell, n_zCell, n_xVertex, n_yVertex, n_zVertex;
 
@@ -112,6 +112,7 @@ void decaf_put(int id, int frame_no, int nVertices, int nCells, int nVertLevels,
 		data_bar[8] = double(n_xVertex);
 		n_data_bar += n_xVertex;
 
+
 		// yVertex 9
 		data_bar.insert(data_bar.end(), &yVertex[0], &yVertex[n_yVertex]);
 		data_bar[9] = double(n_yVertex);
@@ -133,15 +134,26 @@ void decaf_put(int id, int frame_no, int nVertices, int nCells, int nVertLevels,
 		data_bar[12] = double(n_cellsOnVertex);
 		n_data_bar += n_cellsOnVertex;
 
+		// verticesOnCell 13
+		data_bar.insert(data_bar.end(), db_verticesOnCell.begin(), db_verticesOnCell.end());
+		data_bar[13] = double(n_verticesOnCell);
+		n_data_bar += n_verticesOnCell;
+
 	}
 	
+	// if (frame_no==1){
+	// 	for (int i=0;i<10;i++){
+	// 		fprintf(stderr, "xVertex %d %f\n",i, xVertex[i] );
+	// 	}
 
-	data_bar[13] = double (frame_no);
-	data_bar[14] = double (nVertices);
-	data_bar[15] = double (nCells);
-	data_bar[16] = double (nVertLevels);
-	data_bar[17] = double (n_procs);
-	data_bar[18] = double (data_bar.size());
+	// }
+
+	data_bar[14] = double (frame_no);
+	data_bar[15] = double (nVertices);
+	data_bar[16] = double (nCells);
+	data_bar[17] = double (nVertLevels);
+	data_bar[18] = double (n_procs);
+	data_bar[19] = double (data_bar.size());
 	//fprintf(stderr, "sending bar %f \n", data_bar[0]);
 	//printf("first xCell %f %f %f\n", data_bar[1445620], data_bar[1445621], data_bar[1445622]);
 	VectorFliedd data (&data_bar[0], n_data_bar, n_data_bar); 
@@ -171,7 +183,18 @@ void stage_put_intarray(int i1d[], int n, int id, int frame_num){
 		case 7: indexToVertexID = &i1d[0];
 			db_indexToVertexID.insert(db_indexToVertexID.end(), &indexToVertexID[0], &indexToVertexID[n]);
 			n_indexToVertexID = n;
-			break;          
+			break;   
+
+		case 13: verticesOnCell = &i1d[0];
+				n_verticesOnCell = n;
+				db_verticesOnCell.insert(db_verticesOnCell.end(), &verticesOnCell[0], &verticesOnCell[n]);
+			fprintf(stderr, "verticesOnCell ");
+			for (int i=0; i<10; i++){
+				fprintf(stderr, "%d ", verticesOnCell[i]);
+			}
+
+
+			break;       
 
 		case 12: cellsOnVertex = &i1d[0];
 			 n_cellsOnVertex = n;

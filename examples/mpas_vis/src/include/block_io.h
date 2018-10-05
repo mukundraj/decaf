@@ -4,6 +4,7 @@
 // #include "pblock.hpp"
 #include <vector>
 #include <pnetcdf.h>
+#include "mpaso.h"
 
 #include <diy/mpi.hpp>
 
@@ -21,7 +22,7 @@ class block_io{
 		static void handle_error(int status, int lineno);
 		
 		void write_cell_centers(int gid, const diy::mpi::communicator &world, std::vector<double> &xCell);
-                void write_particle_traces(int gid, const diy::mpi::communicator &world, PBlock &b, int max_steps);
+                void write_particle_traces(int gid, const diy::mpi::communicator &world, PBlock &b, int max_steps, mpaso &mpas_c);
 
 
 };
