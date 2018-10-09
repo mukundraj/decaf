@@ -1,6 +1,7 @@
 #include "interpolators.h"
 #include <iostream>
 #include "mpaso.h"
+#include "misc.h"
 
 // https://www.geeksforgeeks.org/program-to-find-equation-of-a-plane-passing-through-3-points/
 // https://en.wikipedia.org/wiki/Rotation_matrix#Rotation_matrix_from_axis_and_angle
@@ -20,9 +21,9 @@ void interpolate_vertically2(mpaso mpas_c, double *X, std::vector<double> &neare
 // *** need to linearly interpolate positions( x, y and z) and values ***
 
 void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex, Eigen::VectorXi &nearest_idx,
-                            std::vector<double> &values, double depth,
-                            std::vector<double> &xVertex, std::vector<double> &yVertex, std::vector<double> &zVertex,
-                            std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv){
+    std::vector<double> &values, double depth,
+    std::vector<double> &xVertex, std::vector<double> &yVertex, std::vector<double> &zVertex,
+    std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv){
 
     const double radius = 6371220.;
 
@@ -59,11 +60,11 @@ void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex,
 
         //        store interpolated values in values
         values[6*i] = linear_inter(depth, zTopVertex[nVertLevels*vert_id+bot_idx], zTopVertex[nVertLevels*vert_id+top_idx],
-                velocityXv[vert_id*nVertLevels+bot_idx],velocityXv[vert_id*nVertLevels+top_idx]);
+            velocityXv[vert_id*nVertLevels+bot_idx],velocityXv[vert_id*nVertLevels+top_idx]);
         values[6*i+1] = linear_inter(depth, zTopVertex[nVertLevels*vert_id+bot_idx], zTopVertex[nVertLevels*vert_id+top_idx],
-                velocityYv[vert_id*nVertLevels+bot_idx],velocityYv[vert_id*nVertLevels+top_idx]);
+            velocityYv[vert_id*nVertLevels+bot_idx],velocityYv[vert_id*nVertLevels+top_idx]);
         values[6*i+2] = linear_inter(depth, zTopVertex[nVertLevels*vert_id+bot_idx], zTopVertex[nVertLevels*vert_id+top_idx],
-                velocityZv[vert_id*nVertLevels+bot_idx],velocityZv[vert_id*nVertLevels+top_idx]);
+            velocityZv[vert_id*nVertLevels+bot_idx],velocityZv[vert_id*nVertLevels+top_idx]);
 
         dc_b = radius + zTopVertex[nVertLevels*vert_id+bot_idx];
         dc_m = radius + depth;
@@ -88,7 +89,7 @@ double linear_inter(double x, double x1, double x2, double q00, double q01){
 }
 
 bool interpolate_horizontally(double cx, double cy, double cz,
-                              std::vector<double> &values, Eigen::Vector3d &c_vel){
+  std::vector<double> &values, Eigen::Vector3d &c_vel){
 
 
     size_t n = values.size()/6;
@@ -147,34 +148,29 @@ bool interpolate_horizontally(double cx, double cy, double cz,
     }
 
     bool point_outside = false;  
-    if (fabs(W)>=0){ // TO_DO: This statement seems meaningless. Figure out. Also deal with exiting the global domain.
-        assert(fabs(W) > 0.0);
-        const double invW = 1.0 / W;
+    // assert(fabs(W) > 0.0);
+    const double invW = 1.0 / W;
 
-        for (size_t i = 0; i < n; ++i){
-            b[i] = w[i] * invW;
-	    if (b[i]<0){
-		point_outside = true;
-	    }
-        }
+    for (size_t i = 0; i < n; ++i){
+        b[i] = w[i] * invW;
+    }
 
         // remember to fill in c_vel
-        c_vel<<0,0,0;
-        for (size_t i = 0; i < n; ++i){
-            c_vel += b[i]*vel[i];
-        }
-    }else{
-        c_vel<<0,0,0;
+    c_vel<<0,0,0;
+    for (size_t i = 0; i < n; ++i){
+        c_vel += b[i]*vel[i];
     }
+    
 
     //    std::cout<<c_vel;
     
-    if (point_outside){
-	    return false;
-    }else{
-	    return true;
-    }
-    
+    // if (point_outside){
+    //     c_vel<<0,0,0;
+    //     return false;
+    // }else{
+     return true;
+    // }
+
 
 
 }

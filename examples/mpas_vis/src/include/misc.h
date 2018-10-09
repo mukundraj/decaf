@@ -10,6 +10,7 @@ std::string split_filename(std::string str);
 
 #define dprint(format, ...) \
     fprintf(stderr, format " %s %d \n", ## __VA_ARGS__, split_filename(__FILE__).c_str(), __LINE__)
+
     
 std::string itos(int i);
 

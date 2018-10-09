@@ -16,7 +16,7 @@ class mpaso
 	public:
 
 		size_t nCells, nEdges, nVertices, nVertLevels;
-		std::vector<int> cellID_to_bid;
+		std::map<int, int> cgid_to_bid;
 
 		std::vector<double> latVertex, lonVertex, xVertex, yVertex, zVertex;
 		std::vector<double> xyzCell; // xCell, yCell, zCell;

@@ -57,8 +57,16 @@ int frame_number = 0, global_gid; //FIX_ME: remove global variable
 // computes vertex values for ghost vertices that also lie on native cells.
 void compute_ghost_vertex_values(mpaso &mpas_c){
 
+	int nCellsAll = mpas_c.xyzCell.size()/3;
+	dprint("nCells nCellsAll %ld %d", mpas_c.nCells, nCellsAll);
+	C_local.resize(3, nCellsAll);
+	for (int i=0;i<nCellsAll;i++){
+		C_local(0,i) = mpas_c.xyzCell[i*3];
+		C_local(1,i) = mpas_c.xyzCell[i*3+1];
+		C_local(2,i) = mpas_c.xyzCell[i*3+2];
+	}
 
-
+	mpas_c.nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
 
 
 	// TODO: 1) deal with pentagonal cells 2) Avoid repeated computations of velocity and top levels of vertices
@@ -71,6 +79,8 @@ void compute_ghost_vertex_values(mpaso &mpas_c){
 	
 	for (int i=0;i<mpas_c.nCells;i++){
 
+
+
 		for(int j=0;j<6;j++){
 			int nvgid = mpas_c.verticesOnCell[i*6+j]; // neighbor vertex global id
 			// if(mpas_c.block_vert_ids.find(nvgid)==mpas_c.block_vert_ids.end() ){
@@ -78,8 +88,13 @@ void compute_ghost_vertex_values(mpaso &mpas_c){
 				// get local vertex id from global id
 				int nvlid = mpas_c.vertexIndex[nvgid];
 
+				
+
 				int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+2]];
 
+				// if (mpas_c.indexToCellID[i]==4463){
+				// 	dprint("4463 found in %d, nei nvgid vlid,  c0g c1g c2g, c0 c1 c2,  %d %d, %d %d %d, %d %d %d", mpas_c.gid, nvgid, nvlid, mpas_c.cellsOnVertex[nvlid*3], mpas_c.cellsOnVertex[nvlid*3+1], mpas_c.cellsOnVertex[nvlid*3+2], c0, c1, c2);
+				// }
 
 
 				double X[3][3] = {
@@ -328,19 +343,16 @@ void populate_block( PBlock* b,
 	mpas_c.gid = b->gid;
 
 
-	for (int q=0;q<100;q++){
-		dprint("%d %f", q, mpas_c.zTop[q]);
-	}
 
 
-	C_local.resize(3, nCells);
-	for (int i=0;i<nCells;i++){
-		C_local(0,i) = mpas_c.xCells[i];
-		C_local(1,i) = mpas_c.yCells[i];
-		C_local(2,i) = mpas_c.zCells[i];
-	}
+	// C_local.resize(3, nCells);
+	// for (int i=0;i<nCells;i++){
+	// 	C_local(0,i) = mpas_c.xCells[i];
+	// 	C_local(1,i) = mpas_c.yCells[i];
+	// 	C_local(2,i) = mpas_c.zCells[i];
+	// }
 
-	mpas_c.nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
+	// mpas_c.nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
 
 	M_local = new Eigen::MatrixXd(3, nVertices);
 	for (int i=0;i<nVertices;i++){
@@ -521,7 +533,7 @@ void populate_block( PBlock* b,
 			// check if the current neighbor is in same partition/block
 			int nbr_cell_1gid = mpas_g.cell_g_neighbors[cur_cell_1gid][j];
 
-			int cell_bid = mpas_g.cellID_to_bid[nbr_cell_1gid-1];
+			int cell_bid = mpas_g.cgid_to_bid[nbr_cell_1gid];
 
 			if (cell_bid != cur_bid){
 				ghost_cell_ids[cell_bid].insert(nbr_cell_1gid);
@@ -713,12 +725,19 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 					mpas_c.xyzCell.push_back(ghost_info[j].cz);
 					std::copy(ghost_info[j].vel_cx, ghost_info[j].vel_cx+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityX));
 					std::copy(ghost_info[j].vel_cy, ghost_info[j].vel_cy+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityY));
-					std::copy(ghost_info[j].vel_cy, ghost_info[j].vel_cy+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityY));
+					std::copy(ghost_info[j].vel_cz, ghost_info[j].vel_cz+mpas_c.nVertLevels, std::back_inserter(mpas_c.velocityZ));
 					std::copy(ghost_info[j].zTop, ghost_info[j].zTop+mpas_c.nVertLevels, std::back_inserter(mpas_c.zTop));
 
 				// update indexToCellID, cellIndex
 					mpas_c.indexToCellID.push_back(ghost_info[j].cgid);
 					mpas_c.cellIndex[ghost_info[j].cgid] = mpas_c.indexToCellID.size()-1;
+
+					if (ghost_info[j].cgid == 4462 || ghost_info[j].cgid == -1){
+						dprint("found cgid %d in ghost in block %d", ghost_info[j].cgid, b->gid);
+						dprint("velX at 70 %f", mpas_c.velocityX[mpas_c.nVertLevels*ghost_info[j].cgid+70]);
+						dprint("velY at 70 %f", mpas_c.velocityY[mpas_c.nVertLevels*ghost_info[j].cgid+70]);
+						dprint("velZ at 70 %f", mpas_c.velocityZ[mpas_c.nVertLevels*ghost_info[j].cgid+70]);
+					}	
 
 				// update ghost cell ids into std::set
 
@@ -820,9 +839,9 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 		void con(Decaf* decaf)
 		{      	
 			int max_rounds = 2;
-	// int max_steps = 1000;
+	// int max_steps = 2000;
 
-			int max_steps = 1;
+			int max_steps = 500;
 
 			mpaso mpas_c, mpas_g;
 			vector< pConstructData > in_data;
@@ -897,6 +916,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 
 	std::string ip_file = "graph.topology";
 	mpas_g.generate_domain_decomposition_graph(ip_file, world.size());	
+	mpas_c.cgid_to_bid = mpas_g.cgid_to_bid; // TODO: compute this val directly in mpas_c/object b
 	mpas_g.read_cell_g_neighbors();
 	// (remote) exchange some data outside the links
 	//	master.foreach([&](PBlock* b, const diy::Master::ProxyWithLink& cp)
@@ -960,24 +980,24 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 						deq_halo_info(b, cp, mpas_c);
 					});
 
-					if (frame_no==1 && b->gid==0){
+					// if (frame_no==1 && b->gid==0){
 
-						int cid = mpas_c.cellIndex[4462];
+					// 	int cid = mpas_c.cellIndex[4462];
 
-						fprintf(stderr, "verticesOnCell 4462\n");
+					// 	fprintf(stderr, "verticesOnCell 4462\n");
 						
-						for (int u=2;u<3;u++){
-							int lvid = mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]];
-							fprintf(stderr, "%d %d %f %f %f, ", mpas_c.verticesOnCell[cid*6+u], lvid, mpas_c.xVertex[lvid], mpas_c.yVertex[lvid], mpas_c.zVertex[lvid]);
-						}
-						dprint("\nprinting vertex local ids (vlids)");
-						for (int u=0;u<6;u++){
-							fprintf(stderr, "%d, ", mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]]);
-						}
-						fprintf(stderr, "\n");
+					// 	for (int u=2;u<3;u++){
+					// 		int lvid = mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]];
+					// 		fprintf(stderr, "%d %d %f %f %f, ", mpas_c.verticesOnCell[cid*6+u], lvid, mpas_c.xVertex[lvid], mpas_c.yVertex[lvid], mpas_c.zVertex[lvid]);
+					// 	}
+					// 	dprint("\nprinting vertex local ids (vlids)");
+					// 	for (int u=0;u<6;u++){
+					// 		fprintf(stderr, "%d, ", mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]]);
+					// 	}
+					// 	fprintf(stderr, "\n");
 
 
-					}
+					// }
 
 					compute_ghost_vertex_values(mpas_c);
 
@@ -995,7 +1015,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 						master.exchange(remote);	
 					}
 
-					//bio.write_cell_centers(pgid, world, b->xCell);
+					//bio.write_cell_centers(pgid, world, b->xCell); //only testing
 					bio.write_particle_traces(pgid, world, *b, max_steps, mpas_c);
 				}	
 
@@ -1076,7 +1096,8 @@ int main(){
 
 }
 
-bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d &c_vel){
+//returns global cell id or -1 if out of vertically out of global
+bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d &c_vel, bool &in_global_domain){
 
 	int K = 6;
 	double depth = std::sqrt(X[0]*X[0] + X[1]*X[1] + X[2]*X[2]) - mpas_g.radius;
@@ -1103,6 +1124,10 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 	for (int i=0;i<K;i++){
 		int gvid = mpas_c.verticesOnCell[clid*6+i];
 		nearest_idx[i] = mpas_c.vertexIndex[gvid];
+	}
+	// dprint("clid %d %d %f %f %f", clid, mpas_c.indexToCellID[clid], q[0], q[1], q[2]);
+	if (clid>mpas_c.nCells-1){
+		return false; // out of partition
 	}
 
 	// if (mpas_c.gid == 0){
@@ -1141,19 +1166,23 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 	double botom_boun = mpas_c.zTop[mpas_c.nVertLevels*nearest_cell_idx[0]+99];
 
-	
 
 	if (depth> top_boun || depth< botom_boun){
 		// terminate flow line
-		return false; // out of global domain
-		// fprintf(stderr, "printing values: %f %f %f\n", top_boun, botom_boun, depth);
+		in_global_domain = false;
+		dprint("vertical exit printing values: %f %f %f", top_boun, botom_boun, depth);
+		return false; 
+		
 	}else{ 
 		interpolate_vertically(mpas_c.nVertLevels, mpas_c.zTopVertex, nearest_idx, values, depth, mpas_c.xVertex, mpas_c.yVertex, mpas_c.zVertex, mpas_c.velocityXv, mpas_c.velocityYv, mpas_c.velocityZv);
 
 		// interpolate horizontally
-		if (!interpolate_horizontally(X[0], X[1], X[2], values, c_vel))
-			return false;
+		interpolate_horizontally(X[0], X[1], X[2], values, c_vel);
+		// if (!interpolate_horizontally(X[0], X[1], X[2], values, c_vel))
+		// 	return false;
 	}
+
+	// dprint("interpolated velocity %d: %f %f %f %f %f %f", mpas_c.gid, X[0], X[1], X[2], c_vel[0], c_vel[1], c_vel[2]);
 
 	// if (global_gid==1 ){
 		// fprintf(stderr,"check vel %f %f %f %f %f %f\n", mpas_c.velocityXv[5539],
@@ -1168,7 +1197,7 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 		//cout<<"inside  get_vel "<<nearest_idx[0]<<" "<<nearest_idx[1]<<" "<<nearest_idx[2]<<" "<<nearest_idx[3]<<" "<<nearest_idx[4]<<" "<<nearest_idx[5]<<" "<<c_vel<<" "<<global_gid<<" "<<mpas_c.velocityXv[5539]<<" "<<mpas_c.velocityXv[909]<<" "<<mpas_c.velocityXv[5565]<<" "<<mpas_c.velocityXv[1899]<<" "<<mpas_c.velocityXv[1880]<<" "<<mpas_c.velocityXv[7875]<<"\n";
 	// }
-	return true; // true implies within global domain vertically
+	return true; // True implies curpoint within partition and within global domain vertically
 
 }
 
@@ -1182,7 +1211,8 @@ bool rk1_mpas(mpaso &mpas_g,
 
 	// check if inside global domain
 	Eigen::Vector3d c_vel;
-	if (get_curpos_vel_sl(mpas_g, mpas_c, X, c_vel)){	
+
+	if (get_curpos_vel_sl(mpas_g, mpas_c, X, c_vel, in_global_domain)){	
 
 		// advect
 		Y[0] = X[0] + h*c_vel[0];	
@@ -1190,10 +1220,14 @@ bool rk1_mpas(mpaso &mpas_g,
 		Y[2] = X[2] + h*c_vel[2];
 		return true;
 
-	}else{
-		in_global_domain = false;
-		return false; // needs to be true for continued advection
-	}	
+	}
+
+	return false;
+	// else{
+	// 	in_global_domain = false;
+	// 	return false; // needs to be true for continued advection
+	// }
+
 }
 
 void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, int max_steps, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner, diy::mpi::communicator &world){
@@ -1208,9 +1242,9 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 	// if first iteration, then seed
 
 	if (round==0){
-		int skipval = 5000;
+		int skipval = 3000;
 		// std::vector<int> seed_level_ids = {10, 30, 50, 70, 90};
-		std::vector<int> seed_level_ids = { 50};
+		std::vector<int> seed_level_ids = { 70};
 		int n_seed_verts = mpas_c.nVertices/skipval;
 		int n_seed_levels = seed_level_ids.size();
 
@@ -1226,15 +1260,15 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 			n_particles_global += b.global_nP[k];
 		}
 		b.global_trace_sizes.resize(n_particles_global);
-		fprintf(stderr, "n_seed_verts %d\n", n_seed_verts);
+		dprint("n_seed_verts %d b.gid %d", n_seed_verts, b.gid);
 		for (int i=0;i<n_seed_verts; i++){
 
 			for (int j=0;j<n_seed_levels;j++){
 
 				int vert_id = i*skipval;
-				if (b.gid==0){
-					vert_id = 2230;
-				}
+				// if (b.gid==0){
+				// 	vert_id = 2230;
+				// }
 
 				dc_c = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+seed_level_ids[j]];
 				// dc_t = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+0];
@@ -1250,13 +1284,13 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 				p[0] = mpas_c.xVertex[vert_id] * ratio;
 				p[1] = mpas_c.yVertex[vert_id] * ratio;
 				p[2] = mpas_c.zVertex[vert_id] * ratio;
-				if (b.gid==0){
-					p[0] = -2089982.455199 * ratio;
-					p[1] = 3032836.244409 * ratio;
-					p[2] = -5198695.665453 * ratio;
-					dprint("seed %f %f %f", p[0], p[1], p[2]); 
+				// if (b.gid==0){
+				// 	p[0] = -2089982.455199 * ratio;
+				// 	p[1] = 3032836.244409 * ratio;
+				// 	p[2] = -5198695.665453 * ratio;
+				// 	dprint("seed %f %f %f", p[0], p[1], p[2]); 
 
-				}
+				// }
 
 
 				particles.push_back(p);
@@ -1284,7 +1318,7 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 			for (size_t j = 0; j < incoming_endpts.size(); j++) {
 				incoming_endpts[j].sid++;
 				particles.push_back(incoming_endpts[j]);
-
+				dprint("received particle");
 			}
 
 
@@ -1309,12 +1343,17 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 		while(rk1_mpas(mpas_g, mpas_c, cur_p.coords, 100000, next_p.coords, in_global_domain)){	
 			s.pts.push_back(next_p);
 			cur_p = next_p;
-			if (s.pts.size()%100==0)
-				fprintf(stderr, " %d %ld\n", b.gid, s.pts.size()  );
+			// if (s.pts.size()%100==0)
+				// dprint(" %d %ld", b.gid, s.pts.size()  );
+
+			// dprint("inloop %d %d %ld %d %d %d", b.gid, mpas_c.get_bid_for_pt(next_p.coords), s.pts.size(), s.pid, s.sid, s.start_step);
 			// cur_segment_steps++;
 			// if (s.pts.size() >= max_steps) // CHECK cur_step here instead of s.pts.size()?
-			if (s.start_step + s.pts.size() >= max_steps) 
+
+			// TODO: is the nan check really needed (deal with nan earlier skip_val=3000)?
+			if (s.start_step + s.pts.size() >= max_steps || std::isnan(next_p.coords[0]) || std::isnan(next_p.coords[1]) || std::isnan(next_p.coords[2])) 
 			{
+				dprint("Reached max steps");
 				finished = true;
 				break;
 
@@ -1322,6 +1361,7 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 
 
 		}
+		// dprint("clid %d %d %f %f %f", b.gid, mpas_c.get_bid_for_pt(next_p.coords), next_p.coords[0], next_p.coords[1], next_p.coords[2]);
 		
 		// fprintf(stderr, "pid size %d %ld\n", s.pid, b.trace_sizes.size());
 		// b.trace_sizes[s.pid] = s.start_step + s.pts.size();
@@ -1338,12 +1378,13 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 		if (finished){
 			mpas_c.done++;
 
-			fprintf(stderr,"finished particle\n");
+			dprint("finished particle in %d", b.gid);
 		}
 		else{ 			// package unfinished endpoint for sending 
-			fprintf(stderr,"enqueuing particle\n");
+			dprint("enqueuing particle");
 			EndPt out_pt(s); // TO_DO: Also update the start_time here
 			int dest_gid = mpas_c.get_bid_for_pt(next_p.coords);		
+			dprint("b.gid dest_gid %d %d", b.gid, dest_gid);
 			int dest_proc = assigner.rank(dest_gid);
 
 			diy::BlockID bid = {dest_gid, dest_proc};
@@ -1363,6 +1404,8 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 	for (map<diy::BlockID, vector<EndPt> >::const_iterator it =
 		outgoing_endpts.begin(); it != outgoing_endpts.end(); it++)
 		cp.enqueue(it->first, it->second);
+
+	
 
 }
 
@@ -1402,18 +1445,22 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 		trace_sizes_global[i] = b.global_trace_sizes[i];
 	}	
 
+	int global_max_segments = b.segments.size();
 
-	if (rank==0){	
+	if (gid==0){	
 		MPI_Reduce(MPI_IN_PLACE, &trace_sizes_global, b.global_trace_sizes.size(), MPI_INT, MPI_MAX, 0, world);
-		// for (int i=0; i<b.global_trace_sizes.size();i++){
-		//         fprintf(stderr, " %d",trace_sizes_global[i]);
-		// }
-		// fprintf(stderr, " \n");
+		for (int i=0; i<b.global_trace_sizes.size();i++){
+		        dprint("trace_sizes_global i %d %d",i, trace_sizes_global[i]);
+		}
+		fprintf(stderr, " \n");
+		MPI_Allreduce(MPI_IN_PLACE, &global_max_segments, 1, MPI_INT, MPI_MAX, world);
 	}else{
 
 		MPI_Reduce(&trace_sizes_global, &trace_sizes_global, b.global_trace_sizes.size(), MPI_INT, MPI_MAX, 0, world);
+		MPI_Allreduce(MPI_IN_PLACE, &global_max_segments, 1, MPI_INT, MPI_MAX, world);
 	}
 
+	// dprint("global_max_segments %d gid %d", global_max_segments, b.gid );
 
 	strcpy(filename, "particle_traces.nc");
 
@@ -1432,6 +1479,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	if (ret != NC_NOERR) handle_error(ret, __LINE__);
 
 	ret = ncmpi_def_dim(ncfile, "nParticle", b.global_trace_sizes.size(), &dimid_p);
+	// ret = ncmpi_def_dim(ncfile, "nParticle", 4, &dimid_p); 
 	if (ret != NC_NOERR) handle_error(ret, __LINE__);
 
 	pos_dims[0] = dimid_s;
@@ -1457,9 +1505,11 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	// TODO create and allocate buffer 
 	// http://cucis.ece.northwestern.edu/projects/PnetCDF/doc/pnetcdf-c/ncmpi_005fput_005fvarn_005f_003ctype_003e.html
 	MPI_Offset **starts, **counts;
-
+	
 	int num_reqs = b.segments.size();
 	/* allocate starts and counts */
+
+
 	starts    = (MPI_Offset**) malloc(num_reqs*       sizeof(MPI_Offset*));
 	starts[0] = (MPI_Offset*)  calloc(num_reqs*ndims_pos, sizeof(MPI_Offset));
 	for (int i=1; i<num_reqs; i++)
@@ -1470,9 +1520,24 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	for (int i=1; i<num_reqs; i++)
 		counts[i] = counts[i-1] + ndims_pos;
 	
-	for (int i=0; i<b.segments.size(); i++){
-		starts[0][0] = 0; starts[0][1] = b.segments[i].gpid;
-		counts[0][0] = b.segments[i].pts.size(); counts[0][1] = 1;
+	// for (int i=0; i<num_reqs; i++){
+	// 	starts[i][0] = b.segments[i].start_step; starts[i][1] = b.segments[i].gpid;
+	// 	counts[i][0] = b.segments[i].pts.size(); counts[i][1] = 1;
+	// 	dprint("segment gid %d gpid %d len %ld start_step %d", b.gid, b.segments[i].gpid, b.segments[i].pts.size(), b.segments[i].start_step);
+
+	// 	// if (b.segments[i].gpid==1){
+	// 	// 	dprint("here how %d %d %ld", b.gid, rank, b.segments.size());
+	// 	// 	// for (int q=0;q<b.segments[i].pts.size();q++)
+	// 	// 	// 	dprint("seg5 %d %d %f ", b.gid, q, b.segments[i].pts[q].coords[0]);
+	// 	// }
+	// }
+
+	for (int i=0; i<num_reqs; i++){
+		starts[i][0] = b.segments[i].start_step; starts[i][1] = b.segments[i].gpid;
+		counts[i][0] = b.segments[i].pts.size(); counts[i][1] = 1;
+		dprint("segment gid %d gpid %d len %ld start_step %d", b.gid, b.segments[i].gpid, b.segments[i].pts.size(), b.segments[i].start_step);
+
+		
 	}
 
        	/* allocate write buffer */
@@ -1483,7 +1548,9 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 			w_req_len *= counts[i][j];
 		buf_len += w_req_len;
 	}
-	fprintf(stderr, "buflen num_reqs, ndims_pos %d %d %d\n", buf_len, num_reqs, ndims_pos);
+
+
+	dprint( "buflen num_reqs, gid %d %d %d", buf_len, num_reqs, b.gid);
 	double *buffer = (double*) malloc(buf_len * sizeof(double));
 	double *buffer_y = (double*) malloc(buf_len * sizeof(double));
 	double *buffer_z = (double*) malloc(buf_len * sizeof(double));
@@ -1493,7 +1560,17 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	//         fprintf(stderr, "bufval %f\n", buffer[i]);
 	// }
 	
-	int bidx = 0;
+	// int bidx = 0;
+	// for (int i=0; i<b.segments.size(); i++) {
+	// 	for (int j=0; j<b.segments[i].pts.size();j++){
+	// 		buffer[bidx] = b.segments[i].pts[j].coords[0];
+	// 		buffer_y[bidx] = b.segments[i].pts[j].coords[1];
+	// 		buffer_z[bidx] = b.segments[i].pts[j].coords[2];
+	// 		bidx++;
+	// 	}
+	// }        
+
+		int bidx = 0;
 	for (int i=0; i<b.segments.size(); i++) {
 		for (int j=0; j<b.segments[i].pts.size();j++){
 			buffer[bidx] = b.segments[i].pts[j].coords[0];
@@ -1503,29 +1580,100 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 		}
 	}        
 
-	fprintf(stderr, "after allocation\n"); 		
+	 dprint("after allocation. %d %d", num_reqs, bidx);
+	// dprint("after allocation. %d %f", bidx, buffer[13]); 	
 
-	ret = ncmpi_put_varn_double_all(ncfile, varid_xPos, num_reqs ,starts, counts, buffer);
-	if (ret != NC_NOERR) handle_error(ret, __LINE__);
+	MPI_Offset start[2], count[2];
+	
+	// http://cucis.ece.northwestern.edu/projects/PnetCDF/
+    // double *buffer_test = (double*) malloc(1 * sizeof(double));
 
-	ret = ncmpi_put_varn_double_all(ncfile, varid_yPos, num_reqs ,starts, counts, buffer_y);
-	if (ret != NC_NOERR) handle_error(ret, __LINE__);
+	for (int i=0; i<global_max_segments; i++){
 
-	ret = ncmpi_put_varn_double_all(ncfile, varid_zPos, num_reqs ,starts, counts, buffer_z);
-	if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		
+		dprint("segments size %ld %d %d", b.segments.size(), b.gid, i);
+		if (i<b.segments.size()){
+			double buffer_test[b.segments[i].pts.size()][1];
+
+			for (int j=0;j<b.segments[i].pts.size();j++)
+				buffer_test[j][0] = b.segments[i].pts[j].coords[0];
+
+			start[0] = b.segments[i].start_step; start[1] = b.segments[i].gpid;
+			count[0] = b.segments[i].pts.size(); count[1] = 1;
+			ret = ncmpi_put_vara_double_all(ncfile, varid_xPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+			for (int j=0;j<b.segments[i].pts.size();j++)
+				buffer_test[j][0] = b.segments[i].pts[j].coords[1];
+			ret = ncmpi_put_vara_double_all(ncfile, varid_yPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+			for (int j=0;j<b.segments[i].pts.size();j++)
+				buffer_test[j][0] = b.segments[i].pts[j].coords[2];
+			ret = ncmpi_put_vara_double_all(ncfile, varid_zPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+			
+		}else{
+
+			double buffer_test[1][1];
+
+			start[0] = 0; start[1] = 0;
+			count[0] = 0; count[1] = 0;
+			ret = ncmpi_put_vara_double_all(ncfile, varid_xPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+			ret = ncmpi_put_vara_double_all(ncfile, varid_yPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+			ret = ncmpi_put_vara_double_all(ncfile, varid_zPos, start, count, &buffer_test[0][0]);
+			if (ret != NC_NOERR) handle_error(ret, __LINE__);
+			
+		}
+		// dprint("written %d %d", i, b.gid);
+
+	}
+
+
+ //    double buffer_test[1][1];
+ //    buffer_test[0][0] = 89;
+ //    start[0] = 0; start[1] = rank;
+ //    count[0] = 1; count[1] = 1;
+	// ret = ncmpi_put_vara_double_all(ncfile, varid_xPos, start, count, &buffer_test[0][0]);
+	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+	// buffer_test[0][0] = 99;
+ //    start[0] = rank; start[1] = 0;
+ //    count[0] = 1; count[1] = 1;
+	// ret = ncmpi_put_vara_double_all(ncfile, varid_xPos, start, count, &buffer_test[0][0]);
+	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+	// free(buffer_test);
+
+	// ret = ncmpi_put_varn_double_all(ncfile, varid_xPos, num_reqs, starts, counts, buffer);
+	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+	// dprint("after first"); 
+	 
+	// ret = ncmpi_put_varn_double_all(ncfile, varid_yPos, num_reqs ,starts, counts, buffer_y);
+	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+	// ret = ncmpi_put_varn_double_all(ncfile, varid_zPos, num_reqs ,starts, counts, buffer_z);
+	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
 
 	for (int i=0;i<b.global_trace_sizes.size();i++){
-		fprintf(stderr, "global %d %d\n", trace_sizes_global[i], b.gid);	
+		dprint("global %d %d", trace_sizes_global[i], b.gid);	
 	}
 	
 	// close file
 	ret = ncmpi_close(ncfile);
 	if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
 
+	dprint("after close"); 
+
 	free(buffer);
 	free(buffer_y);
 	free(buffer_z);
-	// TODO free starts and counts
+	free(starts[0]);
+    free(starts);
+    free(counts[0]);
+    free(counts);
 
 	
 	

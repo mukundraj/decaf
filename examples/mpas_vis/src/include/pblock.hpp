@@ -104,6 +104,8 @@ namespace diy
                 diy::Serialization< vector <Pt> >::
                     save(bb, static_cast< const vector<Pt>& >(x.pts));
                 diy::Serialization<int>::save(bb, x.sid);
+                diy::Serialization<int>::save(bb, x.start_step);
+                diy::Serialization<int>::save(bb, x.gpid);
             }
         static
         void load(diy::BinaryBuffer& bb, Segment& x)
@@ -112,6 +114,8 @@ namespace diy
                 diy::Serialization< vector<Pt> >::
                     load(bb, static_cast< vector<Pt>& >(x.pts));
                 diy::Serialization<int>::load(bb, x.sid);
+                diy::Serialization<int>::load(bb, x.start_step);
+                diy::Serialization<int>::load(bb, x.gpid);
             }
     };
 }

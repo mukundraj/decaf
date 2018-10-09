@@ -30,9 +30,9 @@ int mpaso::get_bid_for_pt(double *coords){
 
 	q << coords[0], coords[1] , coords[2];		
 	nns_cells->knn(q, nearest_cell_idx,dists2, 1);
-
+	// dprint("nearest_cell_idx cgid %d %d %d %d", nearest_cell_idx[0], indexToCellID[nearest_cell_idx[0]], cgid_to_bid[indexToCellID[nearest_cell_idx[0]]], cgid_to_bid[4463]);
 	// find the bid of the cell
-	bid = cellID_to_bid[nearest_cell_idx[0]];
+	bid = cgid_to_bid[indexToCellID[nearest_cell_idx[0]]];
 	return bid;		
 }
 
@@ -148,23 +148,27 @@ void mpaso::generate_domain_decomposition_graph(std::string &filename, int nbloc
 	file.close();
 	fprintf(stderr, "dd graph %d %d %d %d", dd_adjmat[0][0], dd_adjmat[0][1], dd_adjmat[1][0], dd_adjmat[1][1]);
 
-
+	file.clear();
 	// now populate the cellID_to_bid vector
 	std::string ip_file = "graph.info.part."+itos(nblocks);
 	int ctr=0, temp;
+	// file.open(ip_file);
+	// while ( !file.eof ()  ) {   
+	// 	ctr++; 
+	// 	file >> temp;
+	// }
+	// file.close();
+	// cgid_to_bid.resize(ctr);
 	file.open(ip_file);
-	while ( !file.eof ()  ) {   
-		ctr++; 
-		file >> temp;
-	}
-	file.close();
-	cellID_to_bid.resize(ctr-1);
-	file.open(ip_file);
-	ctr=0;
+	ctr=1;
 	while (std::getline(file,line)) { 
 		std::istringstream iss(line);
-		iss >>  cellID_to_bid[ctr];
+		iss >>  temp;
+		cgid_to_bid[ctr] = temp;
+		if (ctr==4463)
+			dprint("ctr cgid_to_bid[i] %d %d", ctr, cgid_to_bid[ctr]);
 		ctr++;
+		
 	}
 	file.close();
 
@@ -185,7 +189,6 @@ void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){
 	nVertLevels= 0;
 
 	//std::vector<double> xCells, yCells, zCells; 
-
 
 
 	bar_start_inds[0] = 0;
