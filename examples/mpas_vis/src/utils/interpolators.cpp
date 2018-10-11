@@ -23,7 +23,7 @@ void interpolate_vertically2(mpaso mpas_c, double *X, std::vector<double> &neare
 void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex, Eigen::VectorXi &nearest_idx,
     std::vector<double> &values, double depth,
     std::vector<double> &xVertex, std::vector<double> &yVertex, std::vector<double> &zVertex,
-    std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv){
+    std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv, int gid){
 
     const double radius = 6371220.;
 
@@ -51,6 +51,9 @@ void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex,
         bot_idx = bin_search_index(zTopVertex, nVertLevels*vert_id,nVertLevels*vert_id+nVertLevels, depth);// pass depth
         bot_idx = bot_idx % nVertLevels;
         top_idx = bot_idx - 1;
+        // if(gid==1){
+        //     dprint("top_idx, bot_idx: %d %d %f", top_idx, bot_idx, depth);
+        // }
 
 
 

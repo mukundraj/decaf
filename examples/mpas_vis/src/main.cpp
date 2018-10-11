@@ -38,6 +38,8 @@ using namespace std;
 #include <diy/serialization.hpp>
 
 #include <Eigen/Dense>
+#include <Eigen/Geometry>
+
 #include "nabo/nabo.h"
 #include "interpolators.h"
 
@@ -841,7 +843,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 			int max_rounds = 2;
 	// int max_steps = 2000;
 
-			int max_steps = 500;
+			int max_steps = 4000;
 
 			mpaso mpas_c, mpas_g;
 			vector< pConstructData > in_data;
@@ -955,7 +957,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 
 				if (frame_no==1){
 
-					streamlines slines;
+					// streamlines slines;
 					mpas_c.compute_cellIndex(b->gid, world.size());
 					// TODO  premature stopping if work completed before max_rounds 
 					populate_block(b, pgid, data_bar, &mpas_g, world, mpas_c);
@@ -1102,6 +1104,13 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 	int K = 6;
 	double depth = std::sqrt(X[0]*X[0] + X[1]*X[1] + X[2]*X[2]) - mpas_g.radius;
 
+	// if (mpas_c.gid==1){
+	// 	dprint("depth 1: %f", depth);
+	// }
+	// if (mpas_c.gid==0){
+	// 	dprint("depth 0: %f", depth);
+	// }
+
 	// get nearest vertex neighbor ids using mpas_c
 	Eigen::VectorXi nearest_idx(K);
 	Eigen::VectorXd dists2(K);
@@ -1129,6 +1138,17 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 	if (clid>mpas_c.nCells-1){
 		return false; // out of partition
 	}
+
+	// if (mpas_c.gid == 1){
+	// 	dprint("nearest_cell_idx for 1: %d %d, %d %d %d %d %d %d", clid, mpas_c.indexToCellID[clid], 
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+0]],
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+1]],
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+2]],
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+3]],
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+4]],
+	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+5]]);
+
+	// }
 
 	// if (mpas_c.gid == 0){
 	// 	dprint("X %f %f %f", X[0], X[1], X[2]);
@@ -1174,7 +1194,7 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 		return false; 
 		
 	}else{ 
-		interpolate_vertically(mpas_c.nVertLevels, mpas_c.zTopVertex, nearest_idx, values, depth, mpas_c.xVertex, mpas_c.yVertex, mpas_c.zVertex, mpas_c.velocityXv, mpas_c.velocityYv, mpas_c.velocityZv);
+		interpolate_vertically(mpas_c.nVertLevels, mpas_c.zTopVertex, nearest_idx, values, depth, mpas_c.xVertex, mpas_c.yVertex, mpas_c.zVertex, mpas_c.velocityXv, mpas_c.velocityYv, mpas_c.velocityZv, mpas_c.gid);
 
 		// interpolate horizontally
 		interpolate_horizontally(X[0], X[1], X[2], values, c_vel);
@@ -1201,15 +1221,67 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 
 }
 
+Eigen::MatrixXd project_on_sphere(double *X, double *Y, double *P){
+
+    // const double PI = std::acos(-1.0); // TODO: Put PI in a common namespace
+
+    double xy[3] = {Y[0]-X[0], Y[1]-X[1], Y[2]-X[2]};
+    double hx = std::sqrt(X[0]*X[0] + X[1]*X[1] + X[2]*X[2]);
+    double d = std::sqrt((xy[0])*(xy[0]) + (xy[1])*(xy[1]) + (xy[2])*(xy[2]));
+    double hy = std::sqrt(Y[0]*Y[0] + Y[1]*Y[1] + Y[2]*Y[2]);
+
+    double theta = acos((-d*d + hx*hx + hy*hy)/(2*hx*hy));
+
+    double phi = d/hx;
+
+//    fprintf(stderr, "hts %f %f %f %f %f\n", hx, d, hy, theta*180/PI, phi*180/PI);
+
+    // get axis
+    double a[3];
+    cross_product(X, xy, a);
+    double a_m = std::sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+    a[0] /= a_m;
+    a[1] /= a_m;
+    a[2] /= a_m;
+
+//    fprintf(stderr, "axis %f %f %f\n",a[0], a[1], a[2]);
+
+   	auto angle = phi;
+    auto sinA = std::sin(angle / 2);
+    auto cosA = std::cos(angle / 2);
+
+    Eigen::Quaterniond q;
+    q.x() = a[0] * sinA;
+    q.y() = a[1] * sinA;
+    q.z() = a[2] * sinA;
+    q.w() = cosA;
+    Eigen::MatrixXd R = q.normalized().toRotationMatrix();
+    Eigen::Vector3d x(X[0], X[1], X[2]);
+    Eigen::Vector3d p = R*x;
+
+    P[0] = p[0];
+    P[1] = p[1];
+    P[2] = p[2]; 
+
+    return R;
+
+}
+
+double mag(double *x){
+    return std::sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
+}
+
+
 bool rk1_mpas(mpaso &mpas_g,
 	mpaso &mpas_c,
 	double *X,
 	double h,
 	double *Y,
-	bool &in_global_domain)
+	bool &in_global_domain, 
+	PBlock &b)
 {
 
-	// check if inside global domain
+	
 	Eigen::Vector3d c_vel;
 
 	if (get_curpos_vel_sl(mpas_g, mpas_c, X, c_vel, in_global_domain)){	
@@ -1218,6 +1290,14 @@ bool rk1_mpas(mpaso &mpas_g,
 		Y[0] = X[0] + h*c_vel[0];	
 		Y[1] = X[1] + h*c_vel[1];
 		Y[2] = X[2] + h*c_vel[2];
+		// dprint("magnitudes %f %f, %f %f %f, %f %f %f", mag(X), mag(Y), X[0], X[1], X[2], Y[0], Y[1], Y[2]);
+
+		Eigen::MatrixXd R = project_on_sphere(X, Y, Y);
+
+		// if (b.gid==0){
+		// 	dprint("magnitudes %f %f, %f %f %f, %f, %d", mag(X), mag(Y), X[0], X[1], X[2], R.determinant(), R.transpose()*R==R.transpose()*R);
+		// }
+
 		return true;
 
 	}
@@ -1236,15 +1316,15 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 	vector<EndPt> particles;
 	map<diy::BlockID, vector<EndPt> > outgoing_endpts;
 
-	double dc_t, dc_c, ratio; //dist from center of earth of top and current layer
+	double dc_t, dc_c, ratio, dc_b, dc_base; //dist from center of earth of top and current layer
 
 	
 	// if first iteration, then seed
 
 	if (round==0){
-		int skipval = 3000;
+		int skipval = 5000;
 		// std::vector<int> seed_level_ids = {10, 30, 50, 70, 90};
-		std::vector<int> seed_level_ids = { 70};
+		std::vector<int> seed_level_ids = { 10};
 		int n_seed_verts = mpas_c.nVertices/skipval;
 		int n_seed_levels = seed_level_ids.size();
 
@@ -1266,15 +1346,27 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 			for (int j=0;j<n_seed_levels;j++){
 
 				int vert_id = i*skipval;
-				// if (b.gid==0){
-				// 	vert_id = 2230;
+				// if (b.gid==1){
+				// 	dprint("gid 1 seed_level_ids[j] %d zTopVertex %f",seed_level_ids[j],mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+seed_level_ids[j]]);
 				// }
 
+
 				dc_c = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+seed_level_ids[j]];
-				// dc_t = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+0];
+				dc_t = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+0];
+				dc_b = mpas_c.radius + mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+99];
+
+
 				// fprintf(stderr, "ratio %f\n", ratio);
 				// ratio = dc_c/dc_t;
-				ratio = dc_c/mpas_c.radius;
+				// ratio = dc_c/mpas_c.radius;
+
+				// EndPt q;
+				// q[0] = mpas_c.xVertex[vert_id];
+				// q[1] = mpas_c.yVertex[vert_id];
+				// q[2] = mpas_c.zVertex[vert_id];
+
+				dc_base = std::sqrt(mpas_c.xVertex[vert_id]*mpas_c.xVertex[vert_id] + mpas_c.yVertex[vert_id]*mpas_c.yVertex[vert_id] + mpas_c.zVertex[vert_id]*mpas_c.zVertex[vert_id]);
+				ratio = dc_c/dc_base;
 
 				EndPt p;
 				p.pid = mpas_c.init;
@@ -1284,6 +1376,9 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 				p[0] = mpas_c.xVertex[vert_id] * ratio;
 				p[1] = mpas_c.yVertex[vert_id] * ratio;
 				p[2] = mpas_c.zVertex[vert_id] * ratio;
+
+
+
 				// if (b.gid==0){
 				// 	p[0] = -2089982.455199 * ratio;
 				// 	p[1] = 3032836.244409 * ratio;
@@ -1292,7 +1387,11 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 
 				// }
 
+				// if (mpas_c.gid==1){
+				// 	dprint("depth during init gid 1: %f %f, dc_c, dc_t, dc_b ratio %f %f %f %f",std::sqrt(p[0]*p[0] + p[1]*p[1] + p[2]*p[2]) - mpas_g.radius, std::sqrt(q[0]*q[0] + q[1]*q[1] + q[2]*q[2]) - mpas_g.radius, dc_c, dc_t, dc_b, ratio);
+				// }
 
+				dprint("vlid gvid bid %d %d %d", vert_id, mpas_c.indexToVertexID[vert_id], b.gid);
 				particles.push_back(p);
 				mpas_c.init++;
 
@@ -1340,7 +1439,8 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 		// int cur_segment_steps = 0;
 		// trace particle as far as it will go
 		
-		while(rk1_mpas(mpas_g, mpas_c, cur_p.coords, 100000, next_p.coords, in_global_domain)){	
+		while(rk1_mpas(mpas_g, mpas_c, cur_p.coords, 100000, next_p.coords, in_global_domain, b)){	
+		// while(rk1_mpas(mpas_g, mpas_c, cur_p.coords, 10000, next_p.coords, in_global_domain)){	
 			s.pts.push_back(next_p);
 			cur_p = next_p;
 			// if (s.pts.size()%100==0)
@@ -1749,6 +1849,146 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 		start[0]=0, count[0]=b.global_trace_sizes.size();
 		ret = ncmpi_put_vara_int_all(ncfile, varid_trace_sizes_global, start, count, trace_sizes_global);
 		if (ret != NC_NOERR) handle_error(ret, __LINE__);	
+
+		// xVertex copy to buffer arrays and write variable 
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.xVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityXv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_xVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityXv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		// yVertex copy to buffer arrays and write variable
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.yVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityYv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_yVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityYv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		// zVertex copy to buffer arrays and write variable
+		for (size_t i=0;i<nVertices;i++){
+			xVertex[i] = mpas_c.zVertex[i];
+		}
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.velocityZv[i];
+		}
+
+		start[0]=0, count[0]=nVertices;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_zVertex, start, count, xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_velocityZv, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+
+		for (size_t i=0;i<nVertexAllLayers;i++){
+			xVelocityXv[i] = mpas_c.zTopVertex[i];
+		}
+		start[0]=0, count[0]=nVertexAllLayers;
+		ret = ncmpi_put_vara_double_all(ncfile, varid_zTopVertex, start, count, xVelocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		
+
+
+
+		// close file
+		ret = ncmpi_close(ncfile);
+		if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
+
+		// free buffer arrays
+		delete [] xVertex;
+		delete [] xVelocityXv;
+
+
+	}
+
+	if (b.gid == 1){
+
+		dprint("in process 1");
+
+		int dimid_nVertices, dimid_nVertexAllLayers, varid_xVertex, 
+		varid_yVertex, varid_zVertex, 
+		varid_velocityXv, varid_velocityYv, varid_velocityZv, varid_zTopVertex;
+		size_t nVertices = mpas_c.xVertex.size();
+		size_t nVertexAllLayers = 100 * nVertices;
+
+		// create buffer arrays
+		double *xVertex, *xVelocityXv;
+		xVertex = new double [nVertices];
+		xVelocityXv = new double [nVertexAllLayers];
+
+
+		strcpy(filename, "particle_traces2.nc");
+
+		ret = ncmpi_create(MPI_COMM_SELF, filename,
+			NC_WRITE|NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
+		if (ret != NC_NOERR) block_io::handle_error(ret, __LINE__);
+		
+		// ret = ncmpi_redef(ncfile); /* enter define mode */
+		// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_dim(ncfile, "nVertices", nVertices, &dimid_nVertices);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		
+		ret = ncmpi_def_dim(ncfile, "nVertexAllLayers", nVertexAllLayers, &dimid_nVertexAllLayers);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		const size_t start_vertices[1] = {0}, size_vertices[1] = {nVertices};
+		ret = ncmpi_def_var(ncfile, "xVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_xVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		ret = ncmpi_def_var(ncfile, "yVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_yVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		ret = ncmpi_def_var(ncfile, "zVertex", NC_DOUBLE, 1, &dimid_nVertices, &varid_zVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+
+		
+		const size_t start_velocityV[1] = {0}, size_velocityV[1] = {nVertexAllLayers};
+		ret = ncmpi_def_var(ncfile, "velocityVx", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityXv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "velocityVy", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityYv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "velocityVz", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_velocityZv);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		ret = ncmpi_def_var(ncfile, "zTopVertex", NC_DOUBLE, 1, &dimid_nVertexAllLayers, &varid_zTopVertex);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		
+		// //	Next define trace_sizes global
+		// ret = ncmpi_def_var(ncfile, "trace_sizes_global", NC_INT, 1, &dimid_p, &varid_trace_sizes_global);
+		// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+
+		
+
+
+		// end define mode
+		ret = ncmpi_enddef(ncfile);
+		if (ret != NC_NOERR) handle_error(ret, __LINE__);
+		
+		
+
+		MPI_Offset start[1], count[1];
+		// start[0]=0, count[0]=b.global_trace_sizes.size();
+		// ret = ncmpi_put_vara_int_all(ncfile, varid_trace_sizes_global, start, count, trace_sizes_global);
+		// if (ret != NC_NOERR) handle_error(ret, __LINE__);	
 
 		// xVertex copy to buffer arrays and write variable 
 		for (size_t i=0;i<nVertices;i++){

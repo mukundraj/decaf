@@ -41,7 +41,7 @@ static inline T barycentric_point2triangle(const T P0[3], const T P1[3], const T
 void interpolate_vertically(size_t nVertLevels, std::vector<double> &zTopVertex, Eigen::VectorXi &nearest_idx,
                             std::vector<double> &values, double depth,
                             std::vector<double> &xVertex, std::vector<double> &yVertex, std::vector<double> &zVertex,
-                            std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv);
+                            std::vector<double> &velocityXv, std::vector<double> &velocityYv, std::vector<double> &velocityZv, int gid);
 
 
 double linear_inter(double x, double x1, double x2, double q00, double q01);
