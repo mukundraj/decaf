@@ -78,6 +78,8 @@ void compute_ghost_vertex_values(mpaso &mpas_c){
 	mpas_c.velocityYv.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
 	mpas_c.velocityZv.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
 	mpas_c.zTopVertex.resize(mpas_c.vertexIndex.size()*mpas_c.nVertLevels);
+
+
 	
 	for (int i=0;i<mpas_c.nCells;i++){
 
@@ -88,41 +90,61 @@ void compute_ghost_vertex_values(mpaso &mpas_c){
 			// if(mpas_c.block_vert_ids.find(nvgid)==mpas_c.block_vert_ids.end() ){
 
 				// get local vertex id from global id
-				int nvlid = mpas_c.vertexIndex[nvgid];
+			int nvlid = mpas_c.vertexIndex[nvgid];
 
-				
-
-				int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+2]];
+			int c0 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3]], c1 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+1]], c2 = mpas_c.cellIndex[mpas_c.cellsOnVertex[nvlid*3+2]];
 
 				// if (mpas_c.indexToCellID[i]==4463){
 				// 	dprint("4463 found in %d, nei nvgid vlid,  c0g c1g c2g, c0 c1 c2,  %d %d, %d %d %d, %d %d %d", mpas_c.gid, nvgid, nvlid, mpas_c.cellsOnVertex[nvlid*3], mpas_c.cellsOnVertex[nvlid*3+1], mpas_c.cellsOnVertex[nvlid*3+2], c0, c1, c2);
 				// }
 
 
-				double X[3][3] = {
-					{mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2]},
-					{mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2]},
-					{mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]}
-				};
 
-				double P[3] = {mpas_c.xVertex[nvlid], mpas_c.yVertex[nvlid], mpas_c.zVertex[nvlid]};
+			double X[3][3] = {
+				{mpas_c.xyzCell[c0*3], mpas_c.xyzCell[c0*3+1], mpas_c.xyzCell[c0*3+2]},
+				{mpas_c.xyzCell[c1*3], mpas_c.xyzCell[c1*3+1], mpas_c.xyzCell[c1*3+2]},
+				{mpas_c.xyzCell[c2*3], mpas_c.xyzCell[c2*3+1], mpas_c.xyzCell[c2*3+2]}
+			};
 
-				double lambda[3];
-				barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
+			double P[3] = {mpas_c.xVertex[nvlid], mpas_c.yVertex[nvlid], mpas_c.zVertex[nvlid]};
 
-
-
-
-				for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
+			double lambda[3];
+			barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
 
 
+			
 
-					mpas_c.velocityXv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityX[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityX[c2*mpas_c.nVertLevels+curVertLevel];
-					mpas_c.velocityYv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityY[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityY[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityY[c2*mpas_c.nVertLevels+curVertLevel];
-					mpas_c.velocityZv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityZ[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityZ[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityZ[c2*mpas_c.nVertLevels+curVertLevel];
-					mpas_c.zTopVertex[nvlid*mpas_c.nVertLevels + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+			
+			// if (0){
+					// dprint("neighbor cell zero for %d", nvgid);
+
+			for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
+
+				mpas_c.zTopVertex[nvlid*mpas_c.nVertLevels + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+
+				if (mpas_c.cellsOnVertex[nvlid*3]==0 || mpas_c.cellsOnVertex[nvlid*3+1] ==0 || mpas_c.cellsOnVertex[nvlid*3+2] == 0){
+					mpas_c.velocityXv[nvlid*mpas_c.nVertLevels+curVertLevel] = 0;
+					mpas_c.velocityYv[nvlid*mpas_c.nVertLevels+curVertLevel] = 0;
+					mpas_c.velocityZv[nvlid*mpas_c.nVertLevels+curVertLevel] = 0;
+					
+				}else{
+
+					for (int curVertLevel=0;curVertLevel<mpas_c.nVertLevels; curVertLevel++){
+
+
+
+						mpas_c.velocityXv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityX[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityX[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityX[c2*mpas_c.nVertLevels+curVertLevel];
+						mpas_c.velocityYv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityY[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityY[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityY[c2*mpas_c.nVertLevels+curVertLevel];
+						mpas_c.velocityZv[nvlid*mpas_c.nVertLevels+curVertLevel] = lambda[0] * mpas_c.velocityZ[c0*mpas_c.nVertLevels+curVertLevel] + lambda[1] * mpas_c.velocityZ[c1*mpas_c.nVertLevels+curVertLevel] + lambda[2] * mpas_c.velocityZ[c2*mpas_c.nVertLevels+curVertLevel];
+						// mpas_c.zTopVertex[nvlid*mpas_c.nVertLevels + curVertLevel] = lambda[0] * mpas_c.zTop[c0*nVertLevels+curVertLevel] + lambda[1] * mpas_c.zTop[c1*nVertLevels+curVertLevel] + lambda[2] * mpas_c.zTop[c2*nVertLevels+curVertLevel];
+
+					}
+
+
 				}
-
+				
+			}
+			
 			// }
 
 		}
@@ -441,10 +463,10 @@ void populate_block( PBlock* b,
 	mpas_c.zTopVertexNorm.resize(mpas_c.nVertices*mpas_c.nVertLevels);
 	mpas_c.xyzCell.resize(mpas_c.nCells*3);
 	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3] = mpas_c.xCells[i];
-	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+1] = mpas_c.yCells[i];
-	for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+2] = mpas_c.zCells[i];
+		for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+1] = mpas_c.yCells[i];
+			for (int i=0; i<mpas_c.nCells; i++) mpas_c.xyzCell[i*3+2] = mpas_c.zCells[i];
 				int max_cell_on_vert = 0;
-	
+
 	/* // commenting out vertex velocity and height computation as redone  in compute_ghost_vertex_values
 	for (int i=0; i<mpas_c.nVertices; i++) {
 		//    if (cellsOnVertex[i*3] == 0 || cellsOnVertex[i*3+1] == 0 || cellsOnVertex[i*3+2] == 0) continue; // on boundary
@@ -503,7 +525,7 @@ void populate_block( PBlock* b,
 	*/
 
 
-}
+		}
 
 
 
@@ -700,7 +722,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 
 		}
 
-		fprintf(stderr, "here\n");
+		dprint("end of process process_halo_req in gid %d", b->gid);
 
 	}
 
@@ -840,10 +862,10 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 // consumer
 		void con(Decaf* decaf)
 		{      	
-			int max_rounds = 2;
+			int max_rounds = 3;
 	// int max_steps = 2000;
 
-			int max_steps = 4000;
+			int max_steps = 400;
 
 			mpaso mpas_c, mpas_g;
 			vector< pConstructData > in_data;
@@ -987,7 +1009,7 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 					// 	int cid = mpas_c.cellIndex[4462];
 
 					// 	fprintf(stderr, "verticesOnCell 4462\n");
-						
+
 					// 	for (int u=2;u<3;u++){
 					// 		int lvid = mpas_c.vertexIndex[mpas_c.verticesOnCell[cid*6+u]];
 					// 		fprintf(stderr, "%d %d %f %f %f, ", mpas_c.verticesOnCell[cid*6+u], lvid, mpas_c.xVertex[lvid], mpas_c.yVertex[lvid], mpas_c.zVertex[lvid]);
@@ -1139,6 +1161,8 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 		return false; // out of partition
 	}
 
+	
+
 	// if (mpas_c.gid == 1){
 	// 	dprint("nearest_cell_idx for 1: %d %d, %d %d %d %d %d %d", clid, mpas_c.indexToCellID[clid], 
 	// 		mpas_c.vertexIndex[mpas_c.verticesOnCell[clid*6+0]],
@@ -1202,6 +1226,16 @@ bool get_curpos_vel_sl(mpaso &mpas_g, mpaso &mpas_c, double *X, Eigen::Vector3d 
 		// 	return false;
 	}
 
+	if (std::isnan(c_vel[0]) || std::isnan(c_vel[1]) || std::isnan(c_vel[2])){
+		c_vel[0] = values[0];
+		c_vel[1] = values[1];
+		c_vel[2] = values[2];
+	}
+	int cgid = mpas_c.indexToCellID[clid];
+	if (mpas_c.gid == 0 && cgid == 6){
+		dprint("nearest_cell_idx for 0 clid cgid: %d %d, %d %d %d %d %d %d, %f %f %f", clid, cgid, nearest_idx[0], nearest_idx[1], nearest_idx[2], nearest_idx[3], nearest_idx[4], nearest_idx[5], c_vel[0], c_vel[1], c_vel[2] );
+	}
+
 	// dprint("interpolated velocity %d: %f %f %f %f %f %f", mpas_c.gid, X[0], X[1], X[2], c_vel[0], c_vel[1], c_vel[2]);
 
 	// if (global_gid==1 ){
@@ -1225,50 +1259,50 @@ Eigen::MatrixXd project_on_sphere(double *X, double *Y, double *P){
 
     // const double PI = std::acos(-1.0); // TODO: Put PI in a common namespace
 
-    double xy[3] = {Y[0]-X[0], Y[1]-X[1], Y[2]-X[2]};
-    double hx = std::sqrt(X[0]*X[0] + X[1]*X[1] + X[2]*X[2]);
-    double d = std::sqrt((xy[0])*(xy[0]) + (xy[1])*(xy[1]) + (xy[2])*(xy[2]));
-    double hy = std::sqrt(Y[0]*Y[0] + Y[1]*Y[1] + Y[2]*Y[2]);
+	double xy[3] = {Y[0]-X[0], Y[1]-X[1], Y[2]-X[2]};
+	double hx = std::sqrt(X[0]*X[0] + X[1]*X[1] + X[2]*X[2]);
+	double d = std::sqrt((xy[0])*(xy[0]) + (xy[1])*(xy[1]) + (xy[2])*(xy[2]));
+	double hy = std::sqrt(Y[0]*Y[0] + Y[1]*Y[1] + Y[2]*Y[2]);
 
-    double theta = acos((-d*d + hx*hx + hy*hy)/(2*hx*hy));
+	double theta = acos((-d*d + hx*hx + hy*hy)/(2*hx*hy));
 
-    double phi = d/hx;
+	double phi = d/hx;
 
 //    fprintf(stderr, "hts %f %f %f %f %f\n", hx, d, hy, theta*180/PI, phi*180/PI);
 
     // get axis
-    double a[3];
-    cross_product(X, xy, a);
-    double a_m = std::sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
-    a[0] /= a_m;
-    a[1] /= a_m;
-    a[2] /= a_m;
+	double a[3];
+	cross_product(X, xy, a);
+	double a_m = std::sqrt(a[0]*a[0] + a[1]*a[1] + a[2]*a[2]);
+	a[0] /= a_m;
+	a[1] /= a_m;
+	a[2] /= a_m;
 
 //    fprintf(stderr, "axis %f %f %f\n",a[0], a[1], a[2]);
 
-   	auto angle = phi;
-    auto sinA = std::sin(angle / 2);
-    auto cosA = std::cos(angle / 2);
+	auto angle = phi;
+	auto sinA = std::sin(angle / 2);
+	auto cosA = std::cos(angle / 2);
 
-    Eigen::Quaterniond q;
-    q.x() = a[0] * sinA;
-    q.y() = a[1] * sinA;
-    q.z() = a[2] * sinA;
-    q.w() = cosA;
-    Eigen::MatrixXd R = q.normalized().toRotationMatrix();
-    Eigen::Vector3d x(X[0], X[1], X[2]);
-    Eigen::Vector3d p = R*x;
+	Eigen::Quaterniond q;
+	q.x() = a[0] * sinA;
+	q.y() = a[1] * sinA;
+	q.z() = a[2] * sinA;
+	q.w() = cosA;
+	Eigen::MatrixXd R = q.normalized().toRotationMatrix();
+	Eigen::Vector3d x(X[0], X[1], X[2]);
+	Eigen::Vector3d p = R*x;
 
-    P[0] = p[0];
-    P[1] = p[1];
-    P[2] = p[2]; 
+	P[0] = p[0];
+	P[1] = p[1];
+	P[2] = p[2]; 
 
-    return R;
+	return R;
 
 }
 
 double mag(double *x){
-    return std::sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
+	return std::sqrt(x[0]*x[0] + x[1]*x[1] + x[2]*x[2]);
 }
 
 
@@ -1322,7 +1356,8 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 	// if first iteration, then seed
 
 	if (round==0){
-		int skipval = 5000;
+		// int skipval = 5000;
+		int skipval = 2500;
 		// std::vector<int> seed_level_ids = {10, 30, 50, 70, 90};
 		std::vector<int> seed_level_ids = { 10};
 		int n_seed_verts = mpas_c.nVertices/skipval;
@@ -1392,6 +1427,8 @@ void parallel_streamlines(mpaso &mpas_g, mpaso &mpas_c, int round, PBlock &b, in
 				// }
 
 				dprint("vlid gvid bid %d %d %d", vert_id, mpas_c.indexToVertexID[vert_id], b.gid);
+				// int gvid = mpas_c.indexToVertexID[vert_id];
+				// dprint("cellsOnVertex %d %d %d %d", gvid, mpas_c.cellsOnVertex[vert_id*3], mpas_c.cellsOnVertex[vert_id*3+1], mpas_c.cellsOnVertex[vert_id*3+2]);
 				particles.push_back(p);
 				mpas_c.init++;
 
@@ -1550,7 +1587,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	if (gid==0){	
 		MPI_Reduce(MPI_IN_PLACE, &trace_sizes_global, b.global_trace_sizes.size(), MPI_INT, MPI_MAX, 0, world);
 		for (int i=0; i<b.global_trace_sizes.size();i++){
-		        dprint("trace_sizes_global i %d %d",i, trace_sizes_global[i]);
+			dprint("trace_sizes_global i %d %d",i, trace_sizes_global[i]);
 		}
 		fprintf(stderr, " \n");
 		MPI_Allreduce(MPI_IN_PLACE, &global_max_segments, 1, MPI_INT, MPI_MAX, world);
@@ -1670,7 +1707,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	// 	}
 	// }        
 
-		int bidx = 0;
+	int bidx = 0;
 	for (int i=0; i<b.segments.size(); i++) {
 		for (int j=0; j<b.segments[i].pts.size();j++){
 			buffer[bidx] = b.segments[i].pts[j].coords[0];
@@ -1680,7 +1717,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 		}
 	}        
 
-	 dprint("after allocation. %d %d", num_reqs, bidx);
+	dprint("after allocation. %d %d", num_reqs, bidx);
 	// dprint("after allocation. %d %f", bidx, buffer[13]); 	
 
 	MPI_Offset start[2], count[2];
@@ -1750,7 +1787,7 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	// ret = ncmpi_put_varn_double_all(ncfile, varid_xPos, num_reqs, starts, counts, buffer);
 	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
 	// dprint("after first"); 
-	 
+
 	// ret = ncmpi_put_varn_double_all(ncfile, varid_yPos, num_reqs ,starts, counts, buffer_y);
 	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
 
@@ -1771,9 +1808,9 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 	free(buffer_y);
 	free(buffer_z);
 	free(starts[0]);
-    free(starts);
-    free(counts[0]);
-    free(counts);
+	free(starts);
+	free(counts[0]);
+	free(counts);
 
 	
 	

@@ -125,30 +125,30 @@ void mpaso::read_cell_g_neighbors(){
 
 void mpaso::generate_domain_decomposition_graph(std::string &filename, int nblocks){
 
-	fprintf(stderr, "%s \n", filename.c_str());
-	std::ifstream file(filename.c_str());
+	// fprintf(stderr, "%s \n", filename.c_str());
+	// std::ifstream file(filename.c_str());
 	
-	std::string line;
-        // Read one line at a time into the variable line:
-        while(std::getline(file, line))
-	{
-		std::vector<int>   lineData;
-		std::stringstream  lineStream(line);
+	// std::string line;
+ //        // Read one line at a time into the variable line:
+ //        while(std::getline(file, line))
+	// {
+	// 	std::vector<int>   lineData;
+	// 	std::stringstream  lineStream(line);
 
-		int value;
-		// Read an integer at a time from the line
-		while(lineStream >> value)
-		{
-			// Add the integers from a line to a 1D array (vector)
-			lineData.push_back(value);
+	// 	int value;
+	// 	// Read an integer at a time from the line
+	// 	while(lineStream >> value)
+	// 	{
+	// 		// Add the integers from a line to a 1D array (vector)
+	// 		lineData.push_back(value);
 
-		}
-		this->dd_adjmat.push_back(lineData);
-	}
-	file.close();
-	fprintf(stderr, "dd graph %d %d %d %d", dd_adjmat[0][0], dd_adjmat[0][1], dd_adjmat[1][0], dd_adjmat[1][1]);
+	// 	}
+	// 	this->dd_adjmat.push_back(lineData);
+	// }
+	// file.close();
+	// fprintf(stderr, "dd graph %d %d %d %d", dd_adjmat[0][0], dd_adjmat[0][1], dd_adjmat[1][0], dd_adjmat[1][1]);
 
-	file.clear();
+	// file.clear();
 	// now populate the cellID_to_bid vector
 	std::string ip_file = "graph.info.part."+itos(nblocks);
 	int ctr=0, temp;
@@ -159,14 +159,16 @@ void mpaso::generate_domain_decomposition_graph(std::string &filename, int nbloc
 	// }
 	// file.close();
 	// cgid_to_bid.resize(ctr);
+	std::ifstream file;
 	file.open(ip_file);
+	std::string line;
 	ctr=1;
 	while (std::getline(file,line)) { 
 		std::istringstream iss(line);
 		iss >>  temp;
 		cgid_to_bid[ctr] = temp;
 		if (ctr==4463)
-			dprint("ctr cgid_to_bid[i] %d %d", ctr, cgid_to_bid[ctr]);
+			 dprint("ctr cgid_to_bid[i] %d %d", ctr, cgid_to_bid[ctr]);
 		ctr++;
 		
 	}
