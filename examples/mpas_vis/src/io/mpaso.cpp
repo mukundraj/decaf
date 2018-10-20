@@ -19,22 +19,22 @@ mpaso::mpaso(){
 mpaso::~mpaso(){
 }
 
-int mpaso::get_bid_for_pt(double *coords){
+// int mpaso::get_bid_for_pt(double *coords){
 	
- 	int bid;	
+//  	int bid;	
 	
-	// find nearest cell
-	Eigen::VectorXi nearest_cell_idx(1);
-	Eigen::VectorXd dists2(1);
-	Eigen::VectorXd q(3);
+// 	// find nearest cell
+// 	Eigen::VectorXi nearest_cell_idx(1);
+// 	Eigen::VectorXd dists2(1);
+// 	Eigen::VectorXd q(3);
 
-	q << coords[0], coords[1] , coords[2];		
-	nns_cells->knn(q, nearest_cell_idx,dists2, 1);
-	// dprint("nearest_cell_idx cgid %d %d %d %d", nearest_cell_idx[0], indexToCellID[nearest_cell_idx[0]], cgid_to_bid[indexToCellID[nearest_cell_idx[0]]], cgid_to_bid[4463]);
-	// find the bid of the cell
-	bid = cgid_to_bid[indexToCellID[nearest_cell_idx[0]]];
-	return bid;		
-}
+// 	q << coords[0], coords[1] , coords[2];		
+// 	nns_cells->knn(q, nearest_cell_idx,dists2, 1);
+// 	// dprint("nearest_cell_idx cgid %d %d %d %d", nearest_cell_idx[0], indexToCellID[nearest_cell_idx[0]], cgid_to_bid[indexToCellID[nearest_cell_idx[0]]], cgid_to_bid[4463]);
+// 	// find the bid of the cell
+// 	bid = cgid_to_bid[indexToCellID[nearest_cell_idx[0]]];
+// 	return bid;		
+// }
 
 // TODO: check if following function is needed. Why not use indexToCellID like for vertices?
 // mapping from global cell id to local cell id
@@ -62,28 +62,9 @@ void mpaso::compute_cellIndex(int cblock, int nblocks){
 
 		g_idx++; 
 	}
-	// while ( !file.eof ()  ) {   
-	// 	file >> temp;
-	// 	fprintf(stderr, " temp %d\n", temp);
-	// 	if (temp==cblock){
-	// 		cellIndex[g_idx+1] = 10;//cblock_idx;
-	// 		cblock_idx++;
-	// 	}
 
-
-	// 	g_idx++; 
-		
-	// }
 	file.close();
-	// cellID_to_bid.resize(ctr-1);
-	// file.open(ip_file);
-	// ctr=0;
-	// while (std::getline(file,line)) { 
-	// 	std::istringstream iss(line);
-	// 	iss >>  cellID_to_bid[ctr];
-	// 	ctr++;
-	// }
-	// file.close();
+
 
 }
 
@@ -170,12 +151,8 @@ void mpaso::generate_domain_decomposition_graph(std::string &filename, int nbloc
 		if (ctr==4463)
 			 dprint("ctr cgid_to_bid[i] %d %d", ctr, cgid_to_bid[ctr]);
 		ctr++;
-		
 	}
 	file.close();
-
-
-	
 
 }
 void mpaso::load_mesh_from_decaf_data_bar(std::vector<double> &data_bar){

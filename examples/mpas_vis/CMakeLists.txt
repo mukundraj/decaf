@@ -40,7 +40,7 @@ set (PNETCDF_LIBRARY ${PNETCDF_DIR}/lib/libpnetcdf.a)
 include_directories (${PNETCDF_INCLUDE_DIR})
 
 add_executable(flow_main src/main.cpp src/utils/interpolators.cpp src/io/flow.cpp src/io/mpaso.cpp
-    src/filters/streamlines.cpp src/filters/pathlines.cpp src/utils/advect.cpp src/io/block_io.cpp src/utils/misc.cpp)
+    src/filters/streamlines.cpp src/filters/pathlines.cpp src/utils/advect.cpp src/io/block_io.cpp src/utils/misc.cpp src/utils/pblock.cpp)
 
 add_library     (mod_mpas_adapter2 MODULE src/adapter/mpas_adapter2.cpp)
 

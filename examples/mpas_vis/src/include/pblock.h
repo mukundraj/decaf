@@ -1,7 +1,11 @@
 #ifndef PBLOCK_H
 #define PBLOCK_H
 
+#include <diy/serialization.hpp>
+
 #include <vector>
+#include "nabo/nabo.h"
+
 // #include <diy/serialization.hpp>
 
 using namespace std;
@@ -34,14 +38,9 @@ struct EndPt
     const double& operator [](int i) const { return pt.coords[i]; }
     double& operator [](int i)             { return pt.coords[i]; }
 
-    EndPt()
-        {
-            pid      = 0;
-            sid      = 0;
-	    step     = 0; // initially all particles are at step zero
-	    gpid     = 0; // need to set this based on the block of initialization
-        }
     EndPt(struct Segment& s);                // extract the end point of a segment
+
+    EndPt();
 };
 
 // one segment of a particle trace (trajectory)
@@ -52,44 +51,17 @@ struct Segment
     int        sid;                          // segment ID of this part of the trace
     int 	start_step; 			// step of first point in this segment with regard to whole trace
     int gpid; // global pid based on the block of origin of the original segment 
-    Segment()
-        {
-            pid      = 0;
-            sid      = 0;
-        }
-    Segment(EndPt& p  )       // construct a segment from one point.
-        {
-            pid      = p.pid;
-            sid      = p.sid;
-            Pt pt    = { p[0], p[1], p[2] };
-	    start_step = p.step;
-            pts.push_back(pt);
-	    gpid = p.gpid;
-        }
+    Segment();
+        
+    Segment(EndPt& p  );       // construct a segment from one point.
+       
 
-    // whether end point is inside given bounds
-    bool inside(const int lb[3], const int ub[3]) const
-        {
-            for (int i = 0; i < 3; i++)
-                if (pts.back().coords[i] < lb[i] || pts.back().coords[i] >= ub[i] - 1)
-                    return false;
-            return true;
-        }
+    // // whether end point is inside given bounds
+    // bool inside(const int lb[3], const int ub[3]) const
+        
 };
 
-// following constructor defined out of line because references Segment, which needed
-// to be defined first
-EndPt::
-EndPt(Segment& s)                       // extract the end point of a segment.  CHECK also pass start_step here?
-{
-    pid = s.pid;
-    sid = s.sid;
-    step = s.start_step + s.pts.size();
-    gpid = s.gpid;
-    pt.coords[0] = s.pts.back().coords[0];
-    pt.coords[1] = s.pts.back().coords[1];
-    pt.coords[2] = s.pts.back().coords[2];
-}
+
 
 // specialize the serialization of a segment
 namespace diy
@@ -122,10 +94,15 @@ namespace diy
 
 struct PBlock
 {
-    PBlock(): count(0)                   {}
+    PBlock(): count(0), radius(6371220), init(0), done(0)                   {}
 
-    	int   count;
+    int   count;
 	int gid;
+    double radius;
+    int init, done;
+
+    size_t nCells, nEdges, nVertices, nVertLevels;
+
     	vector<int> values{9,9,9};
 	vector<int> indexToCellID; 	//0
 	vector<double> xCell; 		//1
@@ -142,10 +119,30 @@ struct PBlock
 	vector<int> cellsOnVertex; 	//12
     vector<int> verticesOnCell; //13
 
+    std::vector<double> velocityXv, velocityYv, velocityZv;
+    std::vector<double> zTopVertex;
+    
+    std::vector<double> xyzCell; // xCell, yCell, zCell;
+    std::map<int, int> vertexIndex, cellIndex;
+    std::set<int> ghost_cell_ids;
+    std::set<int> block_vert_ids; // global ids of vertices native to block
+
+
+
 	 vector<Segment> segments; // finished segments of particle traces
 	 vector<int> global_trace_sizes; // latest known size (length) of each block particle to id early finishes 
 	 vector<int> global_nP; // global view of particles initialized in each block
 	 vector<int> global_start_ids; // global start ids used for computing a global particle id
+
+     std::map<int, int> cgid_to_bid;
+     std::vector<std::vector<int>> cell_g_neighbors;
+
+     Nabo::NNSearchD*  nns_cells;
+
+     void generate_domain_decomposition_graph(std::string &filename, int nblocks);
+     void read_cell_g_neighbors();
+     int get_bid_for_pt(double *coords);
+     void compute_cellIndex(int cblock, int nblocks);
 };
 
 namespace diy
@@ -171,18 +168,14 @@ namespace diy
 
 }
 
-void* create_block()                      { return new PBlock;  }
-void  destroy_block(void* b)              { delete static_cast<PBlock*>(b);  }
+
+
+void* create_block();
+void  destroy_block(void* b) ;
 void  save_block(const void* b,
-                 diy::BinaryBuffer& bb)   { 
-						diy::save(bb, *static_cast<const PBlock*>(b));
-											
-						  
-					}
+                 diy::BinaryBuffer& bb);
 void  load_block(void* b,
-                 diy::BinaryBuffer& bb)   { diy::load(bb, *static_cast<PBlock*>(b));  }
-
-
+                 diy::BinaryBuffer& bb);
 
 
 
