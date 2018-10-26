@@ -99,6 +99,8 @@ void block_io::write_particle_traces(int gid, const diy::mpi::communicator &worl
 
 	int global_max_segments = b.segments.size();
 
+	dprint("global_max_segments %ld", b.segments.size());
+
 	if (gid==0){	
 		MPI_Reduce(MPI_IN_PLACE, &trace_sizes_global, b.global_trace_sizes.size(), MPI_INT, MPI_MAX, 0, world);
 		for (int i=0; i<b.global_trace_sizes.size();i++){

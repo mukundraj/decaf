@@ -5,6 +5,7 @@
 #include "misc.h"
 #include "nabo/nabo.h"
 #include <Eigen/Dense>
+#include <diy/mpi.hpp>
 
 EndPt::EndPt()
         {
@@ -27,6 +28,7 @@ EndPt(Segment& s)                       // extract the end point of a segment.  
     pt.coords[0] = s.pts.back().coords[0];
     pt.coords[1] = s.pts.back().coords[1];
     pt.coords[2] = s.pts.back().coords[2];
+    pt.coords[3] = s.pts.back().coords[3];
 }
 
 
@@ -150,6 +152,85 @@ int PBlock::get_bid_for_pt(double *coords){
     // find the bid of the cell
     bid = cgid_to_bid[indexToCellID[nearest_cell_idx[0]]];
     return bid;     
+}
+
+void PBlock::initialize_seeds(int skipval, diy::mpi::communicator &world, vector<EndPt> &carryover_particles){
+
+        double dc_t, dc_c, ratio, dc_b, dc_base; //dist from center of earth of top and current layer
+
+
+            // int skipval = 5000;
+        // int skipval = 2500;
+        // std::vector<int> seed_level_ids = {10, 30, 50, 70, 90};
+        std::vector<int> seed_level_ids = { 10};
+        int n_seed_verts = nVertices/skipval;
+        int n_seed_levels = seed_level_ids.size();
+
+        int n_particles = n_seed_verts * n_seed_levels;
+        diy::mpi::all_gather(world, n_particles, global_nP);
+        global_start_ids.resize(global_nP.size());
+        // fprintf(stderr, "global np size %ld \n", global_nP.size());
+        
+        int n_particles_global = global_nP[0];
+        for (int k = 1; k<global_nP.size(); k++){
+            global_start_ids[k] = global_start_ids[k-1]+global_nP[k-1];
+            // fprintf(stderr, "global_start_pos %d %d\n", k, global_start_pos[k]);
+            n_particles_global += global_nP[k];
+        }
+        global_trace_sizes.resize(n_particles_global);
+        dprint("n_seed_verts %d gid %d", n_seed_verts, gid);
+        for (int i=0;i<n_seed_verts; i++){
+
+            for (int j=0;j<n_seed_levels;j++){
+
+                int vert_id = i*skipval;
+                // if (gid==1){
+                //  dprint("gid 1 seed_level_ids[j] %d zTopVertex %f",seed_level_ids[j],mpas_c.zTopVertex[mpas_c.nVertLevels*vert_id+seed_level_ids[j]]);
+                // }
+
+
+                dc_c = radius + zTopVertex[nVertLevels*vert_id+seed_level_ids[j]];
+                dc_t = radius + zTopVertex[nVertLevels*vert_id+0];
+                dc_b = radius + zTopVertex[nVertLevels*vert_id+99];
+
+
+
+
+                dc_base = std::sqrt(xVertex[vert_id]*xVertex[vert_id] + yVertex[vert_id]*yVertex[vert_id] + zVertex[vert_id]*zVertex[vert_id]);
+                ratio = dc_c/dc_base;
+
+                EndPt p;
+                p.pid = init;
+                p.sid = init;
+                p.step = 0;
+                p.gpid = global_start_ids[gid] + p.pid;
+                p[0] = xVertex[vert_id] * ratio;
+                p[1] = yVertex[vert_id] * ratio;
+                p[2] = zVertex[vert_id] * ratio;
+                p[3] = 0; // later p.step * h
+
+
+                if (gid==1){
+
+                    dc_base = std::sqrt(-5825858.330663*(-5825858.330663) + -282189.163605*(-282189.163605) + -2563650.318867*(-2563650.318867));
+                    ratio = dc_c/dc_base;
+                    p[0] = -5825858.330663 * ratio;
+                    p[1] = -282189.163605 * ratio;
+                    p[2] = -2563650.318867 * ratio;
+                    p[3] = 0; // later p.step * h
+                }
+
+
+                // dprint("vlid gvid bid %d %d %d", vert_id, indexToVertexID[vert_id], gid);
+
+                carryover_particles.push_back(p);
+                // init++; // moved to consumer loop
+
+
+
+            }
+        }
+
 }
 
 

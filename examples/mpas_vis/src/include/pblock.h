@@ -5,6 +5,7 @@
 
 #include <vector>
 #include "nabo/nabo.h"
+#include <diy/mpi.hpp>
 
 // #include <diy/serialization.hpp>
 
@@ -100,6 +101,9 @@ struct PBlock
 	int gid;
     double radius;
     int init, done;
+    int cur_frame_no;
+    int t1, t2; // time_1 and time_2 in seconds
+    int interval;
 
     size_t nCells, nEdges, nVertices, nVertLevels;
 
@@ -121,6 +125,17 @@ struct PBlock
 
     std::vector<double> velocityXv, velocityYv, velocityZv;
     std::vector<double> zTopVertex;
+
+    std::vector<double> velocityXv2, velocityYv2, velocityZv2;
+    std::vector<double> zTopVertex2;
+
+    std::vector<double> *velocityXv_t1, *velocityYv_t1, *velocityZv_t1;
+    std::vector<double> *zTopVertex_t1;
+
+    std::vector<double> *velocityXv_t2, *velocityYv_t2, *velocityZv_t2;
+    std::vector<double> *zTopVertex_t2;
+
+
     
     std::vector<double> xyzCell; // xCell, yCell, zCell;
     std::map<int, int> vertexIndex, cellIndex;
@@ -143,6 +158,7 @@ struct PBlock
      void read_cell_g_neighbors();
      int get_bid_for_pt(double *coords);
      void compute_cellIndex(int cblock, int nblocks);
+     void initialize_seeds(int skipval, diy::mpi::communicator &world, vector<EndPt> &carryover_particles);
 };
 
 namespace diy
