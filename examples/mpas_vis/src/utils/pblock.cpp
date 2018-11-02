@@ -148,7 +148,7 @@ int PBlock::get_bid_for_pt(double *coords){
 
     q << coords[0], coords[1] , coords[2];      
     nns_cells->knn(q, nearest_cell_idx,dists2, 1);
-    // dprint("nearest_cell_idx cgid %d %d %d %d", nearest_cell_idx[0], indexToCellID[nearest_cell_idx[0]], cgid_to_bid[indexToCellID[nearest_cell_idx[0]]], cgid_to_bid[4463]);
+    dprint("nearest_cell_idx cgid %d %d %d %d, %f %f %f", nearest_cell_idx[0], indexToCellID[nearest_cell_idx[0]], cgid_to_bid[indexToCellID[nearest_cell_idx[0]]], cgid_to_bid[6730], coords[0], coords[1], coords[2]);
     // find the bid of the cell
     bid = cgid_to_bid[indexToCellID[nearest_cell_idx[0]]];
     return bid;     
@@ -179,6 +179,7 @@ void PBlock::initialize_seeds(int skipval, diy::mpi::communicator &world, vector
         }
         global_trace_sizes.resize(n_particles_global);
         dprint("n_seed_verts %d gid %d", n_seed_verts, gid);
+        int local_init = 0;
         for (int i=0;i<n_seed_verts; i++){
 
             for (int j=0;j<n_seed_levels;j++){
@@ -200,8 +201,8 @@ void PBlock::initialize_seeds(int skipval, diy::mpi::communicator &world, vector
                 ratio = dc_c/dc_base;
 
                 EndPt p;
-                p.pid = init;
-                p.sid = init;
+                p.pid = local_init;
+                p.sid = local_init;
                 p.step = 0;
                 p.gpid = global_start_ids[gid] + p.pid;
                 p[0] = xVertex[vert_id] * ratio;
@@ -210,21 +211,34 @@ void PBlock::initialize_seeds(int skipval, diy::mpi::communicator &world, vector
                 p[3] = 0; // later p.step * h
 
 
-                if (gid==1){
 
-                    dc_base = std::sqrt(-5825858.330663*(-5825858.330663) + -282189.163605*(-282189.163605) + -2563650.318867*(-2563650.318867));
-                    ratio = dc_c/dc_base;
-                    p[0] = -5825858.330663 * ratio;
-                    p[1] = -282189.163605 * ratio;
-                    p[2] = -2563650.318867 * ratio;
-                    p[3] = 0; // later p.step * h
+
+
+                if (gid==1 && local_init==0){
+
+                    // dc_base = std::sqrt(-5825858.330663*(-5825858.330663) + -282189.163605*(-282189.163605) + -2563650.318867*(-2563650.318867));
+                    // ratio = dc_c/dc_base;
+                    // p[0] = -5825858.330663 * ratio;
+                    // p[1] = -282189.163605 * ratio;
+                    // p[2] = -2563650.318867 * ratio;
+
+                   
+                    // p[0] = -4497088.093720;
+                    // p[1] = -3762472.508857;
+                    // p[2] = 2492422.84792;
+                    // p[3] = 0; // later p.step * h
                 }
-
+                  
+                // if (gid==1 && p.sid==52){
+                //     dprint("gid 1 and sid 52: %f %f %f", p[0], p[1], p[2]);
+                //     exit(0);
+                // }
 
                 // dprint("vlid gvid bid %d %d %d", vert_id, indexToVertexID[vert_id], gid);
 
                 carryover_particles.push_back(p);
                 // init++; // moved to consumer loop
+                local_init++; // to replace the counter function of init
 
 
 

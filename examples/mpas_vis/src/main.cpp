@@ -54,7 +54,7 @@ Eigen::MatrixXd C_local;
 
 void trace_pathlines( int round, PBlock &b, int max_steps, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner, diy::mpi::communicator &world , int h, int skipval, vector<EndPt> &carryover_particles);
 
-int frame_number = 0, global_gid; //FIX_ME: remove global variable
+int frame_number = 0, global_gid; //TODO: remove global variable
 
 
 void update_all_vertex_values(PBlock &b){
@@ -650,7 +650,10 @@ void process_halo_req(PBlock* b, const diy::Master::ProxyWithLink& cp, const diy
 		int h = 20000;
 		int interval = 1000000;//21600;
 		int max_steps = 1+(frame_no-1)*interval/h; // adding 1 to account for initial
+		// int skipval = 3000;
 		int skipval = 2500;
+		// int skipval = 500;
+		// int skipval = 30;
 
 
 		
@@ -908,9 +911,9 @@ bool get_curpos_vel_pl( PBlock &b, double *X, Eigen::Vector3d &c_vel, bool &in_g
 	}
 	// dprint("clid %d %d %f %f %f", clid, mpas_c.indexToCellID[clid], q[0], q[1], q[2]);
 	// if (b.gid==0) dprint("gid clid b.nCells, X, %d %d %ld, %f %f %f", b.gid, clid, b.nCells, X[0], X[1], X[2]);
-	if (clid>b.nCells-1){
+	if (clid>int(b.nCells-1)){
 
-		dprint("Out of partition in gid %d, cgid %d", b.gid, b.indexToCellID[clid]);
+		dprint("Out of partition in gid %d, clid %d, b.nCells %ld, cgid %d", b.gid, clid, b.nCells, b.indexToCellID[clid]);
 		return false; // out of partition
 	}
 
@@ -1061,6 +1064,65 @@ bool rk1_mpas_pl(
 
 }
 
+bool rk2_mpas_pl(
+	double *X,
+	double h,
+	double *Y,
+	bool &in_global_domain, 
+	PBlock &b)
+{
+	
+	// dprint("in rk1_mpas_pl gid %d", b.gid);
+	Eigen::Vector3d c_vel, c_vel_t1, c_vel_t2, c_vel2;
+
+	// dprint("return val %d %d",get_curpos_vel_pl( b, X, c_vel_t1, in_global_domain, 1), get_curpos_vel_pl( b, X, c_vel_t2, in_global_domain, 2) );
+	// get c_vel_t1 and c_vel_t2
+	if (get_curpos_vel_pl( b, X, c_vel_t1, in_global_domain, 1) && get_curpos_vel_pl( b, X, c_vel_t2, in_global_domain, 2)){
+
+
+		// get c_vel (linearly interpolate)
+		c_vel[0] = linear_inter(X[3], b.t1, b.t2, c_vel_t1[0], c_vel_t2[0]);
+		c_vel[1] = linear_inter(X[3], b.t1, b.t2, c_vel_t1[1], c_vel_t2[1]);
+		c_vel[2] = linear_inter(X[3], b.t1, b.t2, c_vel_t1[2], c_vel_t2[2]);
+
+		// advect
+		Y[0] = X[0] + h*c_vel[0];	
+		Y[1] = X[1] + h*c_vel[1];
+		Y[2] = X[2] + h*c_vel[2];
+		Y[3] = X[3] + h;
+
+
+		// get c_vel2
+		if (get_curpos_vel_pl( b, Y, c_vel_t1, in_global_domain, 1) && get_curpos_vel_pl( b, Y, c_vel_t2, in_global_domain, 2)){
+
+
+			// get c_vel (linearly interpolate)
+			c_vel2[0] = linear_inter(Y[3], b.t1, b.t2, c_vel_t1[0], c_vel_t2[0]);
+			c_vel2[1] = linear_inter(Y[3], b.t1, b.t2, c_vel_t1[1], c_vel_t2[1]);
+			c_vel2[2] = linear_inter(Y[3], b.t1, b.t2, c_vel_t1[2], c_vel_t2[2]);
+
+			// advect
+			Y[0] = X[0] + 0.5*h*(c_vel[0]+c_vel2[0]);	// TODO: premultiply and keep a half_h
+			Y[1] = X[1] + 0.5*h*(c_vel[1]+c_vel2[0]);
+			Y[2] = X[2] + 0.5*h*(c_vel[2]+c_vel2[0]);
+			Y[3] = X[3] + h;
+
+
+			Eigen::MatrixXd R = project_on_sphere(X, Y, Y);
+
+
+			return true;
+
+		// }
+
+		}
+	}
+	dprint("REACHING FALSE! in bid: %d", b.gid);
+	return false;
+	
+
+}
+
 void trace_pathlines( int round, PBlock &b, int max_steps, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner, diy::mpi::communicator &world, int h, int skipval, vector<EndPt> &carryover_particles){
 
 	
@@ -1114,10 +1176,16 @@ void trace_pathlines( int round, PBlock &b, int max_steps, const diy::Master::Pr
 		Pt&     cur_p = particles[i].pt; // current end point
 		Segment s(particles[i]);         // segment with one point p (initialized with EndPt)
 		Pt      next_p;                  // coordinates of next end point
+		next_p.coords[0] = cur_p.coords[0];
+		next_p.coords[1] = cur_p.coords[1];
+		next_p.coords[2] = cur_p.coords[2];
+		next_p.coords[3] = cur_p.coords[3];
+
+
 		bool finished = false, in_global_domain = true, reached_max_steps = false;
 		
 		
-		while(rk1_mpas_pl(cur_p.coords, h, next_p.coords, in_global_domain, b)){	
+		while(rk2_mpas_pl(cur_p.coords, h, next_p.coords, in_global_domain, b)){	
 		// while(rk1_mpas(mpas_g, mpas_c, cur_p.coords, 10000, next_p.coords, in_global_domain)){	
 			s.pts.push_back(next_p);
 			cur_p = next_p;
@@ -1164,7 +1232,7 @@ void trace_pathlines( int round, PBlock &b, int max_steps, const diy::Master::Pr
 				// push  endpts into carryover_particles
 				EndPt out_pt(s);
 				carryover_particles.push_back(out_pt);
-				dprint("pushing into carryover_particles size %ld", carryover_particles.size());
+				dprint("pushing pid %d into carryover_particles size %ld", s.pid, carryover_particles.size());
 			}
 
 			dprint("finished particle in %d, b.init %d, b.done %d", b.gid, b.init, b.done);
@@ -1186,6 +1254,11 @@ void trace_pathlines( int round, PBlock &b, int max_steps, const diy::Master::Pr
 
 			// b.init--;
 			// b.done++;
+
+			// if (b.gid==dest_gid){
+			// 	dprint("source=dest gid %d, s.pid %d, s.gpid %d", b.gid, s.pid, s.gpid);
+			// 	exit(0);
+			// }
 			dprint("enqueuing particle b.gid %d, dest_gid %d, b.init %d, b.done %d", b.gid, dest_gid, b.init, b.done);
 
 

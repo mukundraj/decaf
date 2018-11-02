@@ -9,8 +9,11 @@
 std::string split_filename(std::string str);
 
 #define dprint(format, ...) \
-    fprintf(stderr, format " %s %d \n", ## __VA_ARGS__, split_filename(__FILE__).c_str(), __LINE__)
+     fprintf(stderr, format " %s %d \n", ## __VA_ARGS__, split_filename(__FILE__).c_str(), __LINE__)
 
+
+//#define dprint(format, ...) \
+	if (0) fprintf(stderr, format " %s %d \n", ## __VA_ARGS__, split_filename(__FILE__).c_str(), __LINE__)
     
 std::string itos(int i);
 
