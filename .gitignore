@@ -9,3 +9,5 @@ individual-docs/hadrien/**/*.thm
 individual-docs/hadrien/**/*.toc
 build/
 python/*.pyc
+install/
+examples/direct/
