@@ -36,8 +36,8 @@ public:
 	std::vector<Halo> get_halo_info();
 	void process_halo_req(Halo &h, int framenum);
 	void update_halo_info(Halo &h, int framenum);
-	
-	void process_halo_dynamic(Halo &h, int framenum);
+
+	void process_halo_dynamic(int framenum);
 	void update_halo_dynamic(Halo &h, int framenum);
 
 

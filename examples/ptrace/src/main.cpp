@@ -93,13 +93,37 @@ void deq_halo_info(block *b, const diy::Master::ProxyWithLink& cp, const diy::As
 // for dynamic processing and queuing
 void  process_halo_dynamic(block *b, const diy::Master::ProxyWithLink& cp, const diy::Assigner& assigner, int framenum){
 
-	// b->process_halo_dynamic(incoming_halo, framenum);
+	b->process_halo_dynamic(framenum);
+
+	// for each destination in b->halo_info
+	for (size_t i=0; i<b->halo_info.size(); i++){
+
+		int dest_gid            = b->halo_info[i].src_gid;
+		int dest_proc           = assigner.rank(dest_gid);
+		diy::BlockID dest_block = {dest_gid, dest_proc};
+		cp.enqueue(dest_block, b->halo_info[i]);
+
+	}
+
+
+	
 
 }
 
 void deq_halo_dynamic(block *b, const diy::Master::ProxyWithLink& cp, const diy::Assigner& assigner, int framenum){
 
-	// b->update_halo_dynamic(incoming_halo, framenum);
+	vector<int> in;
+		cp.incoming(in);
+		for (int i = 0; i < in.size(); i++)
+		{	
+			if (cp.incoming(in[i]).buffer.size() > 0)
+			{
+				Halo incoming_halo;
+				cp.dequeue(in[i], incoming_halo);
+				b->update_halo_dynamic(incoming_halo, framenum);
+				
+			}
+		}
 
 }
 

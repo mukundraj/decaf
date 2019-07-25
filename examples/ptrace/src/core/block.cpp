@@ -148,6 +148,7 @@ void block::update_halo_info(Halo &h, int framenum){
 	velocityXv[framenum%2].resize(nVertices_all*nVertLevels);
 	velocityYv[framenum%2].resize(nVertices_all*nVertLevels);
 	velocityZv[framenum%2].resize(nVertices_all*nVertLevels);
+	vertVelocityTop[framenum%2].resize(nVertices_all*nVertLevels);
 	zMid[framenum%2].resize(nVertices_all*nVertLevels);
 	zTop[framenum%2].resize(nVertices_all*nVertLevels);
 
@@ -165,6 +166,7 @@ void block::update_halo_info(Halo &h, int framenum){
 			velocityXv[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.velocityXv[j+nVertLevels*i];
 			velocityYv[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.velocityYv[j+nVertLevels*i];
 			velocityZv[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.velocityZv[j+nVertLevels*i];
+			vertVelocityTop[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.vertVelocityTop[j+nVertLevels*i];
 			zMid[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.zTop[j+nVertLevels*i];
 			zTop[framenum%2][j+nVertLevels*(nVertices_local+i)] = h.zTop[j+nVertLevels*i];
 
@@ -175,16 +177,82 @@ void block::update_halo_info(Halo &h, int framenum){
 
 }
 
-void block::process_halo_dynamic(Halo &h, int framenum){
 
+// prepare to send back dynamic request: velocityXv,... using halo_info
+void block::process_halo_dynamic(int framenum){
+
+
+	for (size_t g=0; g<halo_info.size(); g++){
+
+		Halo &h = halo_info[g];
+		size_t nVerts_to_send  = h.glVertexIDs.size();
+
+		h.velocityXv.resize(nVerts_to_send*nVertLevels);
+		h.velocityYv.resize(nVerts_to_send*nVertLevels);
+		h.velocityZv.resize(nVerts_to_send*nVertLevels);
+		h.zMid.resize(nVerts_to_send*nVertLevels);
+		h.zTop.resize(nVerts_to_send*nVertLevels);
+		h.vertVelocityTop.resize(nVerts_to_send*nVertLevels);
+
+		// iterate over vertices
+		for (size_t i=0; i<nVerts_to_send; i++){
+
+			for(size_t j=0; j<nVertLevels; j++){
+
+				h.velocityXv[j] = velocityXv[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+				h.velocityYv[j] = velocityYv[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+				h.velocityZv[j] = velocityZv[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+				h.vertVelocityTop[j] = vertVelocityTop[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+				h.zMid[j] = zMid[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+				h.zTop[j] = zTop[framenum%2][j+nVertLevels*vertexIndex[h.glVertexIDs[i]]];
+
+			}
+
+		}	
+
+	}
+
+	
 
 }
 
-
+// do a dynamic update of velocityXv,...
 void block::update_halo_dynamic(Halo &h, int framenum){
 
+	size_t nVertices_all = indexToVertexID.size(); // should have been updated during static update rounds: during calls to update_halo_info()
 
-	
+	xVertex.resize(nVertices_all);
+	yVertex.resize(nVertices_all);
+	zVertex.resize(nVertices_all);
+	velocityXv[framenum%2].resize(nVertices_all*nVertLevels);
+	velocityYv[framenum%2].resize(nVertices_all*nVertLevels);
+	velocityZv[framenum%2].resize(nVertices_all*nVertLevels);
+	vertVelocityTop[framenum%2].resize(nVertices_all*nVertLevels);
+	zMid[framenum%2].resize(nVertices_all*nVertLevels);
+	zTop[framenum%2].resize(nVertices_all*nVertLevels);
+
+
+	for (size_t i=0; i<h.glVertexIDs.size(); i++){
+
+		int vertID = h.glVertexIDs[i];
+		// vertexIndex[vertID] = indexToVertexID.size();
+		// indexToVertexID.push_back(vertID);
+
+		for(size_t j=0; j<nVertLevels; j++){
+
+			velocityXv[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.velocityXv[j+nVertLevels*i];
+			velocityYv[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.velocityYv[j+nVertLevels*i];
+			velocityZv[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.velocityZv[j+nVertLevels*i];
+			zMid[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.zMid[j+nVertLevels*i];
+			zTop[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.zTop[j+nVertLevels*i];
+			vertVelocityTop[framenum%2][j+nVertLevels*vertexIndex[vertID]] = h.vertVelocityTop[j+nVertLevels*i];
+
+		}
+
+	}
+
+
+
 }
 
 void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world){
