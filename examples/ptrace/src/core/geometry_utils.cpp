@@ -83,15 +83,17 @@ void get_nearby_cell_index(int nCells,
   int aPoint; 
   int cellID;
 
-  if (lastCell<0){
-        // // brute force solution
-        // Eigen::VectorXd q(3);
-        // q<<xp, yp, zp;
-        // // get nearest cell neighbor ids using mpas_c
-        // Eigen::VectorXi nearest_cell_idx(1);
-        // Eigen::VectorXd dists2_cell(1);
-        // mpas1.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS| Nabo::NNSearchF::ALLOW_SELF_MATCH);
-        // cellID = nearest_cell_idx[0] ; // cell local id
+  // if (lastCell<0){
+  if (1){
+        // brute force solution
+        Eigen::VectorXd q(3);
+        q<<xp, yp, zp;
+        // get nearest cell neighbor ids using mpas_c
+        Eigen::VectorXi nearest_cell_idx(1);
+        Eigen::VectorXd dists2_cell(1);
+        mpas1.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS| Nabo::NNSearchF::ALLOW_SELF_MATCH);
+        cellID = nearest_cell_idx[0] ; // cell local id
+        // dprint("cellID %d", cellID);
 
   }else{
     

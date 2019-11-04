@@ -519,6 +519,7 @@ void block::init_seeds_mpas(std::string &fname_particles){
 		 }
 	}
 
+	particles.resize(1);
 	dprint("particles %ld", particles.size());
 
 

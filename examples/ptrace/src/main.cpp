@@ -200,6 +200,9 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				// initialize seeds
 				// mpas1.generate_new_particle_file();
 				mpas1.init_seeds_mpas(fname_particles);
+
+				// build local kd-tree
+				mpas1.create_cells_kdtree();
 			
 			}else if (framenum>1 && data_id==13){
 				

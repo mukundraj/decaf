@@ -131,3 +131,21 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 				}
 
 }
+
+void mpas_io::create_cells_kdtree(){
+
+		C_local.resize(3, xCell.size());
+		for (int i=0;i<xCell.size();i++){
+			C_local(0,i) = xCell[i];
+			C_local(1,i) = yCell[i];
+			C_local(2,i) = zCell[i];
+
+      // if (i==23 || i==2298){
+      //   dprint("i %d, %f %f %f ", i, xyzCell[i*3], xyzCell[i*3+1], xyzCell[i*3+2]);
+      // }
+		}
+
+		nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
+
+
+}

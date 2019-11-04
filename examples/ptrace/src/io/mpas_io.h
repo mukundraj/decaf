@@ -4,6 +4,7 @@
 #include <string>
 #include <vector>
 #include <map>
+#include "nabo/nabo.h"
 
 class mpas_io
 {
@@ -48,8 +49,14 @@ public:
 	void update_data(int data_id, int frame_no, std::vector<int> &data_int, std::vector<double> &data_dbl);
 
 
+	/* KDTree */
+	Eigen::MatrixXd C_local;
+	Nabo::NNSearchD*  nns_cells;
+	void create_cells_kdtree();
 
 };
+
+
 
 
 #endif

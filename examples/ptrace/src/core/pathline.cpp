@@ -112,8 +112,9 @@ void pathline::compute_epoch(block *mpas1){
 
 					get_validated_cell_id(*mpas1, xSubStep, iCell, nCellVertices);
 
-					// iLevel = get_vertical_id(mpas1->maxLevelCell[iCell], zSubStep, &zMid_cur[nCellsnVertLeves+iCell*mpas1->nVertLevels]);
+					iLevel = get_vertical_id(mpas1->maxLevelCell[iCell], zSubStep, &zMid_cur[nCellsnVertLeves+iCell*mpas1->nVertLevels]);
 
+					dprint("iLevel %d", iLevel);
 
 					
 					int timeInterpOrder = 2;
@@ -127,7 +128,16 @@ void pathline::compute_epoch(block *mpas1){
 					// double v[3]; 
 					double p[3] = {xSubStep(0), xSubStep(1), xSubStep(2)};
 
-
+					// velocity_time_interpolation(timeInterpOrder, 
+					// 						timeCoeff, 
+					// 						iCell,
+					// 						iLevel,
+					// 						nCellVertices,
+					// 						zSubStep,
+					// 						*mpas1,
+					// 						xSubStep,
+					// 						particleVelocity,
+					// 						particleVelocityVert);
 
 					//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 					kCoeff.col(subStep+1) = dt * particleVelocity;
