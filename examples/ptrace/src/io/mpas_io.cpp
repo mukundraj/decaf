@@ -1,5 +1,7 @@
 #include "mpas_io.h"
 #include "misc.h"
+#include <netcdf.h>
+#include "def.h"
 
 mpas_io::mpas_io(){
 
@@ -18,6 +20,7 @@ mpas_io::mpas_io(){
 		nVertLevels = 100;
 		maxEdges = 6;
 		nVertLevelsP1 = 101;
+		radius = 6371229.;
 
 
 }
@@ -53,6 +56,10 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 
 				case 6:	//fprintf(stderr, "Recv indexToVertexID %d,\n", data_id);
 						indexToVertexID = std::move(data_int);
+						for (int i=0; i<indexToVertexID.size(); i++) { 
+								vertexIndex[indexToVertexID[i]] = i;
+						}
+						
 						break;
 
 				case 7:	//fprintf(stderr, "Recv indexToCellID %d,\n", data_id);
@@ -85,6 +92,7 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 
 				case 11:	//fprintf(stderr, "Recv velocityXv %d, fno %d\n", data_id, frame_no);
 						velocityXv[frame_no%2] = std::move(data_dbl);
+						// dprint("first velocityXv %f", velocityXv[frame_no%2][0]);
 						break;
 
 				case 12:	//fprintf(stderr, "Recv velocityYv %d, fno %d\n", data_id, frame_no);
@@ -109,6 +117,7 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 
 				case 17:	//fprintf(stderr, "Recv vertVelocityTop %d,\n", data_id);
 						vertVelocityTop[frame_no%2] = std::move(data_dbl);
+						// dprint("vertVelocityTop.. %f %f", vertVelocityTop[frame_no%2][0], vertVelocityTop[frame_no%2][1]);
 						break;
 
 				case 18:{//fprintf(stderr, "Recv cellsOnCell %d,\n", data_id);
@@ -134,11 +143,50 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 
 void mpas_io::create_cells_kdtree(){
 
-		C_local.resize(3, xCell.size());
-		for (int i=0;i<xCell.size();i++){
-			C_local(0,i) = xCell[i];
-			C_local(1,i) = yCell[i];
-			C_local(2,i) = zCell[i];
+
+		int ncid;
+		int dimid_cells;
+		int varid_xCell, varid_yCell, varid_zCell;
+		size_t nCells;
+		
+
+		// std::vector<int> glCellIdx;
+
+		// output2 to deal with online updation of output.nc by simulation
+		NC_SAFE_CALL( nc_open("output2.nc", NC_NOWRITE, &ncid) );
+
+		NC_SAFE_CALL( nc_inq_dimid(ncid, "nCells", &dimid_cells) );
+		NC_SAFE_CALL( nc_inq_dimlen(ncid, dimid_cells, &nCells) );
+
+		
+
+		NC_SAFE_CALL( nc_inq_varid(ncid, "xCell", &varid_xCell) );
+		NC_SAFE_CALL( nc_inq_varid(ncid, "yCell", &varid_yCell) );
+		NC_SAFE_CALL( nc_inq_varid(ncid, "zCell", &varid_zCell) );
+
+		dprint("nCells %ld", nCells);
+
+		std::vector<double> xCells, yCells, zCells;
+		xCells.resize(nCells);
+		yCells.resize(nCells);
+		zCells.resize(nCells);
+
+		const size_t start_cells[1] = {0}, size_cells[1] = {nCells};
+		NC_SAFE_CALL( nc_get_vara_double(ncid, varid_xCell, start_cells, size_cells, &xCells[0]) );
+		NC_SAFE_CALL( nc_get_vara_double(ncid, varid_yCell, start_cells, size_cells, &yCells[0]) );
+		NC_SAFE_CALL( nc_get_vara_double(ncid, varid_zCell, start_cells, size_cells, &zCells[0]) );
+
+		// dprint("varids %d %d %d,  %f %f %f", varid_xCell, varid_yCell, varid_zCell, xCells[1], yCells[1], zCells[1]);
+
+		dprint("here %ld", xCells.size());
+
+		NC_SAFE_CALL( nc_close(ncid));
+
+		C_local.resize(3, xCells.size());
+		for (int i=0;i<xCells.size();i++){
+			C_local(0,i) = xCells[i];
+			C_local(1,i) = yCells[i];
+			C_local(2,i) = zCells[i];
 
       // if (i==23 || i==2298){
       //   dprint("i %d, %f %f %f ", i, xyzCell[i*3], xyzCell[i*3+1], xyzCell[i*3+2]);
@@ -146,6 +194,7 @@ void mpas_io::create_cells_kdtree(){
 		}
 
 		nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
+		
 
 
 }

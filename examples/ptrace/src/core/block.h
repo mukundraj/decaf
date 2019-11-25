@@ -7,6 +7,8 @@
 #include <string>
 #include <set>
 #include <diy/mpi.hpp>
+#include <pnetcdf.h>
+
 
 class block: public mpas_io{
 
@@ -29,7 +31,7 @@ public:
 
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 	
-	void init_seeds_mpas(std::string &fname_particles);
+	void init_seeds_mpas(std::string &fname_particles, int framenum, int rank);
 
 	void generate_new_particle_file();
 
@@ -41,8 +43,7 @@ public:
 	void update_halo_dynamic(Halo &h, int framenum);
 
 
-
-
+	void parallel_write_segments(diy::mpi::communicator &comm, int max_steps);
 
 };
 

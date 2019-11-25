@@ -28,6 +28,13 @@ using namespace std;
 #include "pathline.h"
 #include "block.h"
 #include "misc.h"
+#include <diy/algorithms.hpp>
+#include <cmath>
+
+
+typedef     diy::RegularContinuousLink  RCLink;
+typedef     diy::ContinuousBounds       Bounds;
+static const unsigned DIM = 3;
 
 
 void enq_halo_info(block *b, const diy::Master::ProxyWithLink&   cp, const diy::Assigner& assigner){
@@ -91,7 +98,7 @@ void deq_halo_info(block *b, const diy::Master::ProxyWithLink& cp, const diy::As
 }
 
 // for dynamic processing and queuing
-void  process_halo_dynamic(block *b, const diy::Master::ProxyWithLink& cp, const diy::Assigner& assigner, int framenum){
+void  process_halo_dynamic(block *b, const diy::Master::ProxyWithLink& cp, const diy::Assigner& assigner, int framenum, block){
 
 	b->process_halo_dynamic(framenum);
 
@@ -127,6 +134,56 @@ void deq_halo_dynamic(block *b, const diy::Master::ProxyWithLink& cp, const diy:
 
 }
 
+void all_gather_data(diy::mpi::communicator &world, std::vector<int> &data_bar_int, std::vector<double> &data_bar_dbl, int data_id){
+
+	
+	if (data_bar_int.size()>1){
+		std::vector<std::vector<int>> out;
+		diy::mpi::all_gather(world, data_bar_int, out);
+		data_bar_int.clear();
+
+
+		// if (data_id==6){
+		// 	int cur_start = 0;
+		// 	for (size_t i=0; i<out.size(); i++){
+
+		// 		for (int &d: out[i]){
+		// 				// dprint("%d ",d);
+		// 			d += cur_start;
+		// 		}
+		// 		// exit(0);
+					
+		// 		cur_start += out[i].size();
+		// 		dprint("cur_start %d", cur_start);
+		// 	}
+		// }
+
+		for (size_t i=0; i<out.size(); i++){
+			data_bar_int.insert(data_bar_int.end(), out[i].begin(), out[i].end());
+		}
+		// if (data_id==6){
+		// 	for (size_t i =0 ; i<data_bar_int.size(); i++)
+		// 		if (data_bar_int[i] == 376)
+		// 			dprint("376 found at %ld", i);
+		// }
+
+
+	}
+
+	if (data_bar_dbl.size()>1){
+		std::vector<std::vector<double>> out;
+		diy::mpi::all_gather(world, data_bar_dbl, out);
+		data_bar_dbl.clear();
+
+		for (size_t i=0; i<out.size(); i++){
+			data_bar_dbl.insert(data_bar_dbl.end(), out[i].begin(), out[i].end());
+		}
+	}
+
+}
+
+bool first_done = false;
+
 // consumer
 void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, block& mpas1, pathline &pl)
 {   
@@ -141,6 +198,9 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	// recomputed particle file ("particles2.nc") includes global cell indices for seeds
 	std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part."+std::to_string(world.size());	
 
+	// build kd tree
+	mpas1.create_cells_kdtree();
+	
 	while (decaf->get(in_data))
 	{
 		int n_velocityX = 0;
@@ -148,74 +208,126 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 		std::vector<double> data_bar_dbl;
 		std::vector<int> data_bar_int;
 		int fir_cell_idx = 999;
+
+		Bounds domain{DIM};
+		for (unsigned i = 0; i < DIM; ++i)
+		{
+			domain.min[i] = -6371329.; // 6371229.
+			domain.max[i] = 6371329.;
+		}
+
 		// get the values and add them
 		for (size_t i = 0; i < in_data.size(); i++)
 		{
 
+			
 
 			SimpleFieldi d_metadata = in_data[i]->getFieldData<SimpleFieldi>("field_id");
 			SimpleFieldi frame_num = in_data[i]->getFieldData<SimpleFieldi>("frame_num");
 			data_bar_int = in_data[i]->getFieldData<VectorFieldi>("data_i").getVector();
 			data_bar_dbl = in_data[i]->getFieldData<VectorFliedd>("data_d").getVector();
 
+			
+
 			// printf("fieldid %d \n", d_metadata.getData());
 
 			int data_id = d_metadata.getData();
 			int framenum = frame_num.getData();
+
+			// dprint("data_id %d", data_id);
+
+
+			if (framenum==1 && first_done == true){
+				dprint("BREAKING");
+				break;
+			}
+			if (framenum>1){
+				first_done = true;
+			} 
+
+			
+
+			// if (data_id==7){
+			// 	for (int i=0; i<1000; i++)
+			// 		if (data_bar_int[i] == 2168)
+			// 			dprint("indexToCellID %d %d, %d", i, data_bar_int[i], data_bar_int[0]);
+			// 	dprint("indexToCellID[0] %d size %ld", data_bar_int[0], data_bar_int.size());
+			// }
+			// if (data_id==0){
+
+			// 	for (size_t i=0; i<data_bar_dbl.size(); i++){
+			// 		if (std::abs(data_bar_dbl[i] +4677490.455831)<0.00001)
+			// 			dprint("xCelll[%ld] %f", i, data_bar_dbl[i]);
+			// 	}
+			// }
+
+			// all_gather data_bar
+			all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
+
+			if (data_id==11){
+				// dprint("rank %d first vel %f %f %f", world.rank(), data_bar_dbl[0], data_bar_dbl[1], data_bar_dbl[2]);
+				dprint("rank %d first vel %f %f %f", world.rank(), data_bar_dbl[3810*100+8], data_bar_dbl[3810*100+9], data_bar_dbl[3810*100+10]);
+			}
+
+			
+
+			
+
 			mpas1.update_data(data_id, framenum, data_bar_int, data_bar_dbl);
 
-			if (framenum==1 && data_id==15){
+			// if (data_id==17){
+			// 	for (size_t i=0; i<mpas1.vertVelocityTop[framenum%2].size();i++)
+			// 		if (std::abs(mpas1.vertVelocityTop[framenum%2][i]-0.000000372406)<0.00000000001)
+			// 			dprint("found at %ld, %.10f", i, mpas1.vertVelocityTop[framenum%2][i]);
+				
+			// }
+
+			
+
+			if (framenum==1 && data_id==15){ // all static arrived
+
 
 				// create links
-				diy::Link* link = new diy::Link; 
-
-				std::set<int> links;
-				mpas1.create_links_mpas(fname_graphinfo, links, world);
-
-				for (auto link_gid : links) {
-					diy::BlockID  neighbor;
-					neighbor.gid  = link_gid;                     // gid of the neighbor block
-					neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
-					link->add_neighbor(neighbor);                // add the neighbor block to the link
-				}
-
+				// diy::Link* link = new diy::Link; 
+				RCLink*         l   = new RCLink(DIM, domain, domain);
 				// add links and block to master
-				master.add(mpas1.gid, &mpas1, link);
+				master.add(mpas1.gid, &mpas1, l);
 
-				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-                {	
-					enq_halo_info(b, cp, assigner);
-				});
-				master.exchange();
-				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-                {	
-					process_halo_req(b, cp, assigner, framenum);
-				});
-				master.exchange();
-				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-                {	
-					deq_halo_info(b, cp, assigner, framenum);
-				});
 
-				// initialize seeds
-				// mpas1.generate_new_particle_file();
-				mpas1.init_seeds_mpas(fname_particles);
-
-				// build local kd-tree
-				mpas1.create_cells_kdtree();
-			
-			}else if (framenum>1 && data_id==13){
 				
-				// dynamic halo exchange
+				// initialize particles
+				if (world.rank()==0){
+					// mpas1.generate_new_particle_file();
+					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
+				}
+			
+
+
+			
+			}else if (framenum>1 && data_id==13){ // all dynamic arrived
+			// if ((data_id==13 && framenum>1) || (data_id==15 && framenum==1)){ // all dynamic arrived
+				
+		
+
+
+				// kdtre based balance 
+
+				// dprint("IN HERE %d", framenum);
+
+
+				
+				bool				wrap = false;
+				size_t 				samples = 512;
+
+				
+				diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
+				
 				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-                {	
-					process_halo_dynamic(b, cp, assigner, framenum);
+                {
+					dprint ("psize %ld", b->particles.size());
 				});
-				master.exchange();
-				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-                {	
-					deq_halo_dynamic(b, cp, assigner, framenum);
-				});
+
+				// advect
 
 				//do{
 				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
@@ -224,20 +336,27 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
                 		pl.update_velocity_vectors(*b, framenum);
 
                 		// trace particles
-                    	pl.compute_epoch(b);
+                    	pl.compute_epoch(b, framenum);
 				});
-				// master.exchange();
-				//while(reduce of all remaining particles not zero)
+				//}while(reduce of all remaining particles not zero)
+				
+				dprint("Completed dynamic frame %d", framenum);
 
 			}
 
 
-			
-			
+			// dprint("Completed: frame_num %d, data_id %d, %ld %ld", framenum, data_id, data_bar_int.size(), data_bar_dbl.size());
 
 			
 		}
 	}
+
+	dprint("writing segments");
+	// write segments to file in parallel
+	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+		dprint("writing");
+		b->parallel_write_segments(world, 0);
+	});
 
 }
 
@@ -249,7 +368,7 @@ int main(){
 	double dtSim=7200, dtParticle=300;
 	pathline pl(mpas1, dtSim, dtParticle);
 
-		// define the workflow
+	// define the workflow
 	Workflow workflow;
 	//make_wflow(workflow);
 	Workflow::make_wflow_from_json(workflow, "mpas_decaf_flowvis.json");
@@ -306,95 +425,4 @@ int main(){
 }
 
 
-// switch(d_metadata.getData()){
 
-			// 	case 0: fprintf(stderr, "Recv xCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 1: fprintf(stderr, "Recv yCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 2:	fprintf(stderr, "Recv zCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 3:	fprintf(stderr, "Recv xVertex %d,\n", d_metadata.getData());
-			// 			break;
-						
-			// 	case 4:	fprintf(stderr, "Recv yVertex %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 5:	fprintf(stderr, "Recv zVertex %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 6:	fprintf(stderr, "Recv indexToVertexID %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 7:	fprintf(stderr, "Recv indexToCellID %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 8:	fprintf(stderr, "Recv verticesOnEdge %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 9:	fprintf(stderr, "Recv cellsOnVertex %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 10:	fprintf(stderr, "Recv verticesOnCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 11:	fprintf(stderr, "Recv velocityXv %d, fno %d\n", d_metadata.getData(), frame_num.getData());
-			// 			break;
-
-			// 	case 12:	fprintf(stderr, "Recv velocityYv %d, fno %d\n", d_metadata.getData(), frame_num.getData());
-			// 			break;
-
-			// 	case 13:	fprintf(stderr, "Recv velocityZv %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 14:	fprintf(stderr, "Recv nEdgesOnCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 15:	fprintf(stderr, "Recv maxLevelCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 16:	fprintf(stderr, "Recv boundaryVertex %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 17:	fprintf(stderr, "Recv vertVelocityTop %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 18:	fprintf(stderr, "Recv cellsOnCell %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 19:	fprintf(stderr, "Recv zTop %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	case 20:	fprintf(stderr, "Recv zMid %d,\n", d_metadata.getData());
-			// 			break;
-
-			// 	default:fprintf(stderr, "Exiting! %d,\n", d_metadata.getData()); 
-			// 			exit(0);
-			// 			break;
-
-
-			// }
-
-			// if(d_metadata.getData()==19)
-			// {	
-			// 	VectorFliedd d_data_bar = in_data[i]->getFieldData<VectorFliedd>("data_d");
-
-			// 	data_bar = d_data_bar.getVector();
-			// 	printf("Incomingg container %f metadata2 %d\n", data_bar[data_bar.size()-1], d_metadata.getData());
-
-				
-			// }else if (d_metadata.getData()==7){
-			// 	VectorFieldi d_data_bar = in_data[i]->getFieldData<VectorFieldi>("data_i");
-
-			// 	data_bar_int = d_data_bar.getVector();
-			// 	printf("Incomingg container %d metadata2 %d\n", data_bar_int[data_bar.size()-1], d_metadata.getData());
-
-			// }else if (d_metadata.getData()==0){
-
-			// 	VectorFliedd d_data_bar = in_data[i]->getFieldData<VectorFliedd>("data_d");
-			// 	data_bar = d_data_bar.getVector();
-			// 	printf("Incomingg container %f metadata2 %d\n", data_bar[data_bar.size()-1], d_metadata.getData());
-			// }

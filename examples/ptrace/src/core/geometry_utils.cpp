@@ -43,21 +43,22 @@ return mpas_triangle_signed_area_sphere;
 
 int get_vertical_id(int nLevels, double zLoc, double *zMid){
 
+  // dprint("nLevels %d", nLevels);
   for (int aLevel=0; aLevel<nLevels-1; aLevel++){
 
     if (zMid[aLevel+1]<=zLoc && zLoc <= zMid[aLevel]){
       // the point is bounded by the levels (store the bottom level)
-
       return aLevel;
     }
 
-
   }
+
 
   if (zLoc < zMid[nLevels-1]){
     // case where location is smallest value
     return -1;
-  }else if (zLoc > zMid[0]){
+  }
+  else if (zLoc > zMid[0]){
     // case where location is largest value
     return 0;
   }
@@ -83,8 +84,8 @@ void get_nearby_cell_index(int nCells,
   int aPoint; 
   int cellID;
 
-  // if (lastCell<0){
-  if (1){
+  if (lastCell<0){
+  // if (1){
         // brute force solution
         Eigen::VectorXd q(3);
         q<<xp, yp, zp;

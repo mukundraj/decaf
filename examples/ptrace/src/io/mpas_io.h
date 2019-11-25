@@ -35,7 +35,6 @@ public:
     // Global values
     size_t nVertices_global;
 
-
     /* LIGHT data */
 	std::vector<double> xParticle, yParticle, zParticle;
 	std::vector<double> xParticle_, yParticle_, zParticle_; // Mukund's tracer points

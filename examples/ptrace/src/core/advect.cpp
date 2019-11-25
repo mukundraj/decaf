@@ -1,11 +1,12 @@
 #include "advect.h"
 #include "mpas_io.h"
-#include "math.h"
+#include <cmath>
 #include "misc.h"
 #include "geometry_utils.h"
 #include <algorithm>
 #include <cstdlib>
 #include "pathline.h"
+#include <iostream>
 
 // rk4 functions 
 
@@ -16,7 +17,7 @@
 void particle_horizontal_movement(const mpas_io& mpas1, Eigen::Array3d &pParticle, const Eigen::Array3d &dpParticle){
 
 
-	double eps = 10e-10;
+	double eps = 1e-10;
 	double lenPath = sqrt((dpParticle*dpParticle).sum());
 
 	double radiusShell = sqrt((pParticle*pParticle).sum());
@@ -28,8 +29,10 @@ void particle_horizontal_movement(const mpas_io& mpas1, Eigen::Array3d &pParticl
 		pParticleTemp(0), pParticleTemp(1), pParticleTemp(2));
 
 	double alpha = 0;
-	if (arcLen > eps)
+	if (arcLen > eps){
 		alpha = lenPath / arcLen;
+		// dprint("alpha %f, arcLen %f", alpha, arcLen);
+	}
 	else return;
 
 
@@ -45,24 +48,29 @@ void particle_horizontal_movement(const mpas_io& mpas1, Eigen::Array3d &pParticl
 
 void spherical_linear_interp(Eigen::Array3d &pInterp, const Eigen::Array3d &p0, const Eigen::Array3d &p1, double alpha){
 
-	double eps = 10e-14;
+	double eps = 1e-14;
 
 	double p0mag = sqrt((p0*p0).sum());
 	double p1mag = sqrt((p1*p1).sum());
 
 	Eigen::Array3d p0scaled = p0/p0mag;
 	Eigen::Array3d p1scaled = p1/p1mag;
+	std::cout.precision(15);
+	// dprint("p0 (%.15f %.15f %.15f) p1 (%.15f %.15f %.15f)", p0scaled(0), p0scaled(1), p0scaled(2), p1scaled(0), p1scaled(1), p1scaled(2));
 
 	double dotProd = std::min(1.0, std::max(-1.0, (p0scaled*p1scaled).sum()));
 
 	double omega = acos(dotProd);
 
-	if(abs(omega) < eps ){
+	
+	if(std::abs(omega) < eps ){
 		pInterp = p0;
+		// dprint("omega %.15f, dotprod %.15f, eps %.15f", std::abs(omega), dotProd, eps);
 		return;
 	}
 
 	pInterp = sin( (1-alpha) * omega) / sin(omega) * p0 + sin(alpha * omega) / sin(omega) * p1;
+	// dprint("pInterp (%f %f %f)", pInterp(0), pInterp(1), pInterp(2));
 
 }
 
