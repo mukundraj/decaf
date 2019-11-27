@@ -65,145 +65,124 @@ int get_vertical_id(int nLevels, double zLoc, double *zMid){
 
 }
 
-
+// return global cell id with fortran starting index
 void get_nearby_cell_index(int nCells,
- const double *xc, 
- const double *yc, 
- const double *zc,
- const double xp, 
- const double yp, 
- const double zp,
- const block &mpas1, 
- int &lastCell, 
- const int *cellsOnCell,
- const int *nEdgesOnCell
- ){
+                           const double *xc,
+                           const double *yc,
+                           const double *zc,
+                           const double xp,
+                           const double yp,
+                           const double zp,
+                           const block &mpas1,
+                           int &lastCell,
+                           const int *cellsOnCell,
+                           const int *nEdgesOnCell)
+{
 
   double pointRadius, xPoint[3];
   std::map<int, Eigen::Array3d> xCell;
-  int aPoint; 
+  int aPoint;
   int cellID;
 
-  if (lastCell<0){
-  // if (1){
-        // brute force solution
-        Eigen::VectorXd q(3);
-        q<<xp, yp, zp;
-        // get nearest cell neighbor ids using mpas_c
-        Eigen::VectorXi nearest_cell_idx(1);
-        Eigen::VectorXd dists2_cell(1);
-        mpas1.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS| Nabo::NNSearchF::ALLOW_SELF_MATCH);
-        cellID = nearest_cell_idx[0] ; // cell local id
-        // dprint("cellID %d", cellID);
+  if (lastCell < 1)
+  {
+    // if (1){
+    // brute force solution
+    Eigen::VectorXd q(3);
+    q << xp, yp, zp;
+    // get nearest cell neighbor ids using mpas_c
+    Eigen::VectorXi nearest_cell_idx(1);
+    Eigen::VectorXd dists2_cell(1);
+    mpas1.nns_cells->knn(q, nearest_cell_idx, dists2_cell, 1, 0, Nabo::NNSearchF::SORT_RESULTS | Nabo::NNSearchF::ALLOW_SELF_MATCH);
+    cellID = nearest_cell_idx[0] + 1;
+    // dprint("cellID %d", cellID);
+  }
+  else
+  {
 
-  }else{
-    
-    int cellGuess =lastCell;
+    int cellGuess = lastCell;
     cellID = -1;
 
-    while (cellID != cellGuess){
+    while (cellID != cellGuess)
+    {
 
-    // we have a known cell
-    cellID = cellGuess;
+      // we have a known cell
+      cellID = cellGuess;
 
+      // normalize locations to same spherical shell (unit) for direct comparison
 
-    // normalize locations to same spherical shell (unit) for direct comparison
+      // for point itself
+      pointRadius = sqrt(xp * xp + yp * yp + zp * zp);
+      xPoint[0] = xp / pointRadius;
+      xPoint[1] = yp / pointRadius;
+      xPoint[2] = zp / pointRadius;
 
-    pointRadius = sqrt(xp*xp + yp*yp + zp*zp);
-    xPoint[0] = xp/pointRadius; xPoint[1] = yp/pointRadius; xPoint[2] = zp/pointRadius;
-
-    // for point itself
-    // pointRadius = sqrt(xc[cellID]*xc[cellID] + yc[cellID]*yc[cellID] + zc[cellID]*zc[cellID]);
-    pointRadius = mpas1.cradius;
-
-    // dprint("map size %ld", mpas1.cellIndex.size());
-
-    // if (mpas1.gid==1){
-    //   std::for_each(mpas1.cellIndex.begin(), mpas1.cellIndex.end(),
-    //     [](std::pair<int, int> element){
-    //       // Accessing KEY from element
-    //       int key = element.first;
-    //       // Accessing VALUE from element.
-    //       int value = element.second;
-    //       std::cout<<key<<" ";
-    //     });
-    // }
-
-
-    int localCellID = mpas1.cellIndex.at(cellID+1);
-    // xCell[cellID] << xc[localCellID],yc[localCellID],zc[localCellID]; xCell[cellID] /= pointRadius;
-
-    // dprint("nEdgesOnCell[mpas1.cellIndex.at(cellID)] %d", nEdgesOnCell[mpas1.cellIndex.at(cellID)]);
-    // exit(0);
-      // for point neighbors
-    int iPoint_=-7, aPoint_=-7;
+      // dprint("cellID %d", cellID);
+      int localCellID = mpas1.cellIndex.at(cellID);
+      xCell[cellGuess] <<  xc[localCellID]/pointRadius, yc[localCellID]/pointRadius, zc[localCellID]/pointRadius;
       
-      for (int iPoint=0; iPoint<nEdgesOnCell[localCellID]; iPoint++)
+      // for point neighbors
+      int aPoint_local = -7;
+
+      for (int iPoint = 0; iPoint < nEdgesOnCell[localCellID]; iPoint++)
       {
-          
-         
-          // aPoint = cellsOnCell[cellID*mpas1.maxEdges+iPoint] - 1; // local cell id of neighbor
-          iPoint_ = iPoint;
-          aPoint = cellsOnCell[localCellID*mpas1.maxEdges+iPoint] - 1; // local cell id of neighbor
 
-          aPoint_ = aPoint;
-          if (aPoint >= nCells || aPoint==-1) continue; // todo: nCells should be nCells_local
-          // dprint("aPoint %d, %d, %d, nEdgesOnCell[cellID] %d", aPoint, cellID, iPoint, nEdgesOnCell[cellID]);
+        // aPoint = cellsOnCell[cellID*mpas1.maxEdges+iPoint] - 1; // local cell id of neighbor
+        // iPoint_ = iPoint;
+        // aPoint = cellsOnCell[localCellID * mpas1.maxEdges + iPoint] - 1; // local cell id of neighbor
+        aPoint = cellsOnCell[localCellID * mpas1.maxEdges + iPoint]; // global cell id of neighbor
 
-          try{
-            int local_aPoint = mpas1.cellIndex.at(aPoint+1);
-             }
-      catch(...)
-          {
-          // catch any other errors (that we have no information about)
-            dprint("EX aPoint_ %d, cellID %d, iPoint_ %d, nEdgesOnCell[cellID] %d, gid %d, gcIdxToGid %d", aPoint_, cellID, iPoint_, nEdgesOnCell[cellID], mpas1.gid, mpas1.gcIdxToGid[aPoint]);
-            exit(0);
-          }
-           /*
-            // xCell[aPoint] << xc[local_aPoint], yc[local_aPoint], zc[local_aPoint]; xCell[aPoint] /= pointRadius;
-         
-          */
+        // dprint("aPoint %d", aPoint);
+        
+       
+        // aPoint_ = aPoint;
+        if (aPoint > nCells || aPoint == 0)
+          continue; // todo: confirm logic
 
-    }
-    
-  
+        // dprint("aPoint %d", aPoint);
+        aPoint_local = mpas1.cellIndex.at(aPoint); // local cell id of neighbor
+        pointRadius = mpas1.cradius;
+        xCell[aPoint] <<  xc[aPoint_local]/pointRadius, yc[aPoint_local]/pointRadius, zc[aPoint_local]/pointRadius;
+        // pointRadius = sqrt(xc[aPoint_local] * xc[aPoint_local] + yc[aPoint_local] * yc[aPoint_local] + zc[aPoint_local] * zc[aPoint_local]);
+
+        // dprint("xCell[%d], %f %f %f, locCellID %d xc %f pointR %f", aPoint, xCell[aPoint](0), xCell
+        // [aPoint](1), xCell[aPoint](2), localCellID, xc[localCellID], pointRadius);
+      }
+      // dprint("--");
 
       // dprint("cellID %d cellGuess %d", cellID, cellGuess);
 
-    /*
-        double dx = xPoint[0] - xCell[cellID][0];
-        double dy = xPoint[1] - xCell[cellID][1];
-        double dz = xPoint[2] - xCell[cellID][2];
+      
+        double dx = xPoint[0] - xCell[cellID](0);
+        double dy = xPoint[1] - xCell[cellID](1);
+        double dz = xPoint[2] - xCell[cellID](2);
         double r2Min = dx*dx + dy*dy + dz*dz;
         double r2;
 
+        // dprint("r2Min %.12e", r2Min);
+        
+        for (int iPoint=0; iPoint<nEdgesOnCell[localCellID]; ++iPoint){
+          aPoint = cellsOnCell[localCellID*mpas1.maxEdges+iPoint];
 
-        for (int iPoint=0; iPoint<nEdgesOnCell[cellID]; ++iPoint){
-          aPoint = cellsOnCell[cellID*mpas1.maxEdges+iPoint];
+          if (aPoint > nCells || aPoint == 0)
+            continue; // todo: confirm logic
 
           // compute squared distances
 
-          dx = xPoint[0] - xCell[aPoint][0];
-          dy = xPoint[1] - xCell[aPoint][1];
-          dz = xPoint[2] - xCell[aPoint][2];
+          dx = xPoint[0] - xCell[aPoint](0);
+          dy = xPoint[1] - xCell[aPoint](1);
+          dz = xPoint[2] - xCell[aPoint](2);
           r2 = dx*dx + dy*dy + dz*dz;
+          // dprint("r2 %.12e", r2);
           if ( r2 < r2Min){
             // we have a new closest point
             cellGuess = aPoint;
             r2Min = r2;
-
           }
-
-
         }
-        */
-      }
+        
     }
+  }
 
-
-
-
-
-          lastCell = cellID;
-
-        }
+  lastCell = cellID;
+}

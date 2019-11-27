@@ -107,7 +107,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 				zSubStep = zLevelParticle;
 				diffSubStepVert = kWeightKVert(subStep) * kCoeffVert(subStep);
 
-				// dprint("timestep00 %d, subStep %d, pid %d, %f (%f %f %f), diff % f (%f %f %f)", timeStep, subStep, mpas1->particles[pid].pid, zLevelParticle, xSubStep(0), xSubStep(1), xSubStep(2), diffSubStepVert, diffSubStep(0), diffSubStep(1), diffSubStep(2));
+				// dprint("timestep00 %d, subStep %d, pid %d, (%.7f %.7f %.7f), diff % f (%f %f %f) zLevel %.7f", timeStep, subStep, mpas1->particles[pid].pid, xSubStep(0), xSubStep(1), xSubStep(2), diffSubStepVert, diffSubStep(0), diffSubStep(1), diffSubStep(2), zLevelParticle);
 
 
 				if (kWeightKVert(subStep) != 0)
@@ -126,6 +126,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 				// get cellIdx
 
 				iCell = mpas1->cellIndex[iCell];
+				
 
 				// dprint("iCell %d %f", iCell, mpas1->xCell[iCell]);
 
@@ -156,7 +157,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 											particleVelocityVert);
 
 				// dprint(" %f (%f %f %f)", zLevelParticle, particleVelocity[0], particleVelocity[1],particleVelocity[2]); 
-				// dprint("timestep01 %d,subStep %d, pid %d, %f (%f %f %f), velVert %f, particleVelocity (%f %f %f)", timeStep, subStep, mpas1->particles[pid].pid, zLevelParticle, xSubStep(0), xSubStep(1), xSubStep(2), particleVelocityVert, particleVelocity(0), particleVelocity(1), particleVelocity(2));
+				// dprint("timestep01 %d,subStep %d, pid %d,(%f %f %f), velVert %.07e, particleVelocity (%.07e %.7ef %.7e), zLevel %f", timeStep, subStep, mpas1->particles[pid].pid, xSubStep(0), xSubStep(1), xSubStep(2), particleVelocityVert, particleVelocity(0), particleVelocity(1), particleVelocity(2), zLevelParticle);
 
 
 				//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
@@ -164,6 +165,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 				kCoeffVert(subStep + 1) = dt * particleVelocityVert;
 
 				// dprint(" %f (%f )", zLevelParticle, kCoeff.col(subStep + 1)(0)); 
+				iCell = mpas1->indexToCellID[iCell];
 			} // substep loop ends
 
 			
@@ -179,14 +181,14 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 					diffParticlePositionVert = diffParticlePositionVert + kWeightXVert(subStep) * kCoeffVert(subStep+1);
 			}
 
-			// dprint("timestep02 diffParticlePosition %f %f %f", diffParticlePosition(0), diffParticlePosition(1), diffParticlePosition(2));
+			// dprint("timestep02 diffParticlePosition %.7e %.7e %.7e", diffParticlePosition(0), diffParticlePosition(1), diffParticlePosition(2));
 			//now, make sure particle position is still on same spherical shell as before
 			particle_horizontal_movement(*mpas1, particlePosition, diffParticlePosition);
 
 			//now can do any vertical movements independent of the horizontal movement
 			zLevelParticle = zLevelParticle + diffParticlePositionVert;
 
-			dprint(" timestep03 %d, particlePosition (%f %f %f), zLevelParticle %f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
+			dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
 
 
 
@@ -209,7 +211,8 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 		pt.pid = mpas1->particles[pid].pid; // Needs modification of diy code to be effective
 		pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];
 		pt.zLevelParticle = zLevelParticle;
-		mpas1->particles[pid].glCellIdx = iCell;
+		// mpas1->particles[pid].glCellIdx = iCell; 
+		pt.glCellIdx = iCell; 
 		particles_finished.push_back(pt);
 		
 
@@ -221,21 +224,27 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 
 void pathline::get_validated_cell_id(const block &mpas1, Array3d &xSubStep, int &iCell, int &nCellVertices)
 {
+		// dprint("iCell guess %d", iCell);
+		get_nearby_cell_index(mpas1.nCells, &mpas1.xCell[0], &mpas1.yCell[0], &mpas1.zCell[0], xSubStep(0), xSubStep(1), xSubStep(2), mpas1, iCell, &mpas1.cellsOnCell[0], &mpas1.nEdgesOnCell[0]);
 
 	// if (iCell==-1){
 	/* Get cell id */
-		Eigen::VectorXd q(3);
-		// q<<xSubStep[0], xSubStep[1], xSubStep[2];-4677490.455831 4114410.084085 -1336140.586176
-		q<<-4677490.455831, 4114410.084085, -1336140.586176;
-		// get nearest cell neighbor ids using mpas_c
-		Eigen::VectorXi nearest_cell_idx(1);
-		Eigen::VectorXd dists2_cell(1);
-		mpas1.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS| Nabo::NNSearchF::ALLOW_SELF_MATCH);
-		iCell = nearest_cell_idx[0] + 1; // cell fortran global id
+
+		// Eigen::VectorXd q(3);
+		// q<<xSubStep[0], xSubStep[1], xSubStep[2];//-4677490.455831 4114410.084085 -1336140.586176
+		// // q<<-4677490.455831, 4114410.084085, -1336140.586176;
+		// // get nearest cell neighbor ids using mpas_c
+		// Eigen::VectorXi nearest_cell_idx(1);
+		// Eigen::VectorXd dists2_cell(1);
+		// mpas1.nns_cells->knn(q, nearest_cell_idx,dists2_cell, 1,0, Nabo::NNSearchF::SORT_RESULTS| Nabo::NNSearchF::ALLOW_SELF_MATCH);
+		// iCell = nearest_cell_idx[0] + 1; // cell fortran global id
+
 	// } else{
 
-	// get_nearby_cell_index(mpas1.nCells, &mpas1.xCell[0], &mpas1.yCell[0], &mpas1.zCell[0], xSubStep(0), xSubStep(1), xSubStep(2), mpas1, iCell, &mpas1.cellsOnCell[0], &mpas1.nEdgesOnCell[0]);
+
 	// }
+
+	// dprint("iCell found %d", iCell);
 
 	nCellVertices = mpas1.nEdgesOnCell[iCell];
 }

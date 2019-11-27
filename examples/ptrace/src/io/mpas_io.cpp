@@ -21,6 +21,7 @@ mpas_io::mpas_io(){
 		maxEdges = 6;
 		nVertLevelsP1 = 101;
 		radius = 6371229.;
+		cradius = radius;
 
 
 }

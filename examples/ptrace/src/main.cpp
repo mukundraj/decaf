@@ -238,6 +238,7 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 
 			if (framenum==1 && first_done == true){
+				// to deal with the output stream for restart files
 				dprint("BREAKING");
 				break;
 			}
