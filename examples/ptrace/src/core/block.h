@@ -43,6 +43,7 @@ public:
 	void update_halo_dynamic(Halo &h, int framenum);
 
 
+	void parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum);
 	void parallel_write_segments(diy::mpi::communicator &comm, int max_steps);
 
 };

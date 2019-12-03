@@ -338,6 +338,10 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
                 		// trace particles
                     	pl.compute_epoch(b, framenum);
+
+						b->parallel_write_simstep_segments(world, framenum);
+
+
 				});
 				//}while(reduce of all remaining particles not zero)
 				
@@ -355,8 +359,8 @@ void con(Decaf* decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	dprint("writing segments");
 	// write segments to file in parallel
 	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
-		dprint("writing");
-		b->parallel_write_segments(world, 0);
+		// dprint("writing");
+		// b->parallel_write_segments(world, 0);
 	});
 
 }

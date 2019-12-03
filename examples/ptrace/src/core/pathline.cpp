@@ -53,7 +53,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 	for (int pid = 0; pid < mpas1->particles.size(); pid++)
 	{
 
-		dprint("pid %d", pid);
+		// dprint("pid %d", pid);
 		// create segment
 		Segment seg;
 		seg.pid = mpas1->particles[pid].pid;
@@ -188,7 +188,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 			//now can do any vertical movements independent of the horizontal movement
 			zLevelParticle = zLevelParticle + diffParticlePositionVert;
 
-			dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
+			// dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
 
 
 
