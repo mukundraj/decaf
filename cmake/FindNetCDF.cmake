@@ -27,18 +27,18 @@ find_library( NetCDF_C_LIBRARY
   /usr/lib/netcdf-3
 )
 
-find_library( NetCDF_CXX_LIBRARY
-  NAMES netcdf_c++
-  PATHS ${NetCDF_PREFIX}
-  ${NetCDF_PREFIX}/lib64
-  ${NetCDF_PREFIX}/lib
-  /usr/local/lib64
-  /usr/lib64
-  /usr/lib64/netcdf-3
-  /usr/local/lib
-  /usr/lib
-  /usr/lib/netcdf-3
-)
+# find_library( NetCDF_CXX_LIBRARY
+#   NAMES netcdf_c++
+#   PATHS ${NetCDF_PREFIX}
+#   ${NetCDF_PREFIX}/lib64
+#   ${NetCDF_PREFIX}/lib
+#   /usr/local/lib64
+#   /usr/lib64
+#   /usr/lib64/netcdf-3
+#   /usr/local/lib
+#   /usr/lib
+#   /usr/lib/netcdf-3
+# )
 
 #find_library( NetCDF_FORTRAN_LIBRARY
 #  NAMES netcdf_g77 netcdf_ifc netcdf_x86_64

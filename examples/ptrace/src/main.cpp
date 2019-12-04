@@ -300,7 +300,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					// update field
 					pl.update_velocity_vectors(*b, framenum);
 
-					dprint("here2");
+					// dprint("here2");
 					// trace particles
 					pl.compute_epoch(b, framenum);
 					// dprint("here3 rank %d", world.rank());

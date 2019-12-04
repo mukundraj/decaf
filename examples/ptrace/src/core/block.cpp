@@ -494,18 +494,18 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 
 		// if (init==130){
 		// if (init==410 || init == 130){
-		// if (init < 3){
-		EndPt p;
-		p.pid = init;
-		p.sid = init;
-		p[0] = xParticle[i];
-		p[1] = yParticle[i];
-		p[2] = zParticle[i];
-		p.zLevelParticle = zLevelParticle[i];
-		p.glCellIdx = glCellIdx[i];
-		particles.push_back(p);
+		if (init < 7034){
+			EndPt p;
+			p.pid = init;
+			p.sid = init;
+			p[0] = xParticle[i];
+			p[1] = yParticle[i];
+			p[2] = zParticle[i];
+			p.zLevelParticle = zLevelParticle[i];
+			p.glCellIdx = glCellIdx[i];
+			particles.push_back(p);
 		// dprint("Init cellid %d", p.glCellIdx);
-		// }
+		}
 		init++;
 
 		// if (init>230) break;
