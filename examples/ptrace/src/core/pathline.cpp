@@ -171,7 +171,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 			
 
 			// update particle positions
-			diffParticlePosition = 0;
+			diffParticlePosition << 0,0,0;
 			diffParticlePositionVert = 0;
 
 			for (int subStep = 0; subStep < subStepOrder; subStep++){
@@ -285,7 +285,7 @@ void pathline::velocity_time_interpolation(const int timeInterpOrder,
 	// exit(0);
 
 	// initialize velocities to 0
-	particleVelocity = 0;
+	particleVelocity << 0,0,0;
 	particleVelocityVert = 0;
 
 	// general interpolation for the velocity field

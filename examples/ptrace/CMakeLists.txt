@@ -43,6 +43,7 @@ include_directories(${libnabo_INCLUDE_DIRS})
 set(EXTERNAL_LIBS ${EXTERNAL_LIBS} ${libnabo_LIBRARIES})
 message(STATUS "libnabo found, version ${libnabo_VERSION} (include=${libnabo_INCLUDE_DIRS} libs=${libnabo_LIBRARIES})")
 
+set (EIGEN3_INCLUDE_DIR "/home/mraj/libraries/eigen-eigen-323c052e1731")
 set (EIGEN3_INCLUDE_DIR "/homes/mraj/work/libraries/eigen-eigen-323c052e1731")
 INCLUDE_DIRECTORIES ( "${EIGEN3_INCLUDE_DIR}"  )
 
