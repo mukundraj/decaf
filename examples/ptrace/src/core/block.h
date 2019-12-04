@@ -29,6 +29,8 @@ public:
 	int init=0, done=0;
 	vector<Segment> segments; // finished segments of particle traces
 
+	
+
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 	
 	void init_seeds_mpas(std::string &fname_particles, int framenum, int rank);

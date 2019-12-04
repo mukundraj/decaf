@@ -46,7 +46,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 
 	size_t nCellsnVertLeves = mpas1->nCells * mpas1->nVertLevels;
 
-	dprint("mpas1->particles.size() %ld, nCells %ld", mpas1->particles.size(), mpas1->nCells);
+	// dprint("mpas1->particles.size() %ld, nCells %ld", mpas1->particles.size(), mpas1->nCells);
 
 	std::vector<EndPt> particles_finished;
 
@@ -138,7 +138,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 				double timeCoeff[2];
 				timeCoeff[0] = tSubStep / dtSim;
 				timeCoeff[1] = 1.0 - timeCoeff[0];
-
+				// dprint("mid");
 				// dprint("tSubStep %f, timeCoeff (%f %f)", tSubStep, timeCoeff[0], timeCoeff[1]);
 
 				// velocity_time_interpolation
@@ -217,8 +217,11 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 		
 
 		// dprint("particle finished in epoch");
-	}
-		mpas1->particles = std::move(particles_finished);
+	} // particle loop
+
+	// dprint("pldone");
+
+	mpas1->particles = std::move(particles_finished);
 
 }
 
@@ -580,7 +583,7 @@ void pathline::update_velocity_vectors(mpas_io &mpas1, int frame_no)
 	zTop_cur_size = mpas1.zTop[(frame_no + 1) % 2].size();
 
 	vertVelocityTop_cur = &mpas1.vertVelocityTop[(frame_no + 1) % 2][0];
-	dprint("vertVelocityTop_cur size %ld", mpas1.vertVelocityTop[(frame_no + 1) % 2].size());
+	// dprint("vertVelocityTop_cur size %ld", mpas1.vertVelocityTop[(frame_no + 1) % 2].size());
 
 	// initialize first frame to zero if first round of advection
 	temp.resize(mpas1.velocityXv[frame_no % 2].size());

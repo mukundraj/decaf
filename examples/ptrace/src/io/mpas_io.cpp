@@ -177,9 +177,10 @@ void mpas_io::create_cells_kdtree(){
 		NC_SAFE_CALL( nc_get_vara_double(ncid, varid_yCell, start_cells, size_cells, &yCells[0]) );
 		NC_SAFE_CALL( nc_get_vara_double(ncid, varid_zCell, start_cells, size_cells, &zCells[0]) );
 
+		
 		// dprint("varids %d %d %d,  %f %f %f", varid_xCell, varid_yCell, varid_zCell, xCells[1], yCells[1], zCells[1]);
 
-		dprint("here %ld", xCells.size());
+		// dprint("here %ld", xCells.size());
 
 		NC_SAFE_CALL( nc_close(ncid));
 

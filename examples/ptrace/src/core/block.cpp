@@ -812,7 +812,7 @@ void block::parallel_write_simstep_segments(diy::mpi::communicator &comm, int fr
 	size_t start_idx = 0;
 	diy::mpi::scan(comm, segments.size(), start_idx, std::plus<size_t>());
 	start_idx -= segments.size();
-	dprint("here %ld", start_idx);
+	// dprint("here %ld", start_idx);
 
 	int nSegments_local = segments.size();
 
