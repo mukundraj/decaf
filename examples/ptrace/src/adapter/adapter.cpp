@@ -91,13 +91,17 @@ void init_decaf(){
 
 
 void finish_decaf(){
+
 	if (decaf2->my_node("prod") || decaf2->my_node("con")){
 		int pid=decaf2->world->rank();
 		printf("pid %d terminating now \n", decaf2->world->rank());
 		decaf2->terminate();
 	}
 
-	MPI_Finalize();
+	// int flag = false;
+	// MPI_Finalized(&flag);
+	// if (!flag)
+	// MPI_Finalize();
 }
 
 

@@ -7,7 +7,7 @@
 #include <string>
 #include <set>
 #include <diy/mpi.hpp>
-#include <pnetcdf.h>
+// #include <pnetcdf.h>
 
 
 class block: public mpas_io{

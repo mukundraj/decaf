@@ -7,7 +7,7 @@
 #include "nabo/nabo.h"
 #include <map>
 #include <utility>
-#include <pnetcdf.h>
+// #include <pnetcdf.h>
 
 std::vector<Halo> block::get_halo_info()
 {
@@ -516,385 +516,385 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 	dprint("particles %ld, framenum %d, rank %d", particles.size(), framenum, rank);
 }
 
-static void handle_error(int status, int lineno)
-{
-	fprintf(stderr, "Error at line %d: %s\n", lineno, ncmpi_strerror(status));
-	MPI_Abort(MPI_COMM_WORLD, 1);
-}
+// static void handle_error(int status, int lineno)
+// {
+// 	fprintf(stderr, "Error at line %d: %s\n", lineno, ncmpi_strerror(status));
+// 	MPI_Abort(MPI_COMM_WORLD, 1);
+// }
 
 // void block::parallel_write_segments(MPI_Comm comm, int max_steps){
 void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 {
 
-	int ret, ncfile, nprocs, rank;
-	char filename[256];
-	int data[2];
+	// int ret, ncfile, nprocs, rank;
+	// char filename[256];
+	// int data[2];
 
-	// MPI_Comm_rank(comm, &rank);
-	// MPI_Comm_size(comm, &nprocs);
+	// // MPI_Comm_rank(comm, &rank);
+	// // MPI_Comm_size(comm, &nprocs);
 
-	rank = comm.rank();
-	nprocs = comm.size();
+	// rank = comm.rank();
+	// nprocs = comm.size();
 
-	strcpy(filename, "segments.nc");
+	// strcpy(filename, "segments.nc");
 
-	std::vector<int> segsizes(nprocs); // later contain total length of all segments in each proc
-	std::vector<int> segsizes_local;   // sizes of local segments
-	// std::vector<int> segstep_local; // step values of local segments
-	std::vector<int> segsid_local; // seeds of local segments
-	int totalseglen_local = 0;	 // later contain total length of all local segments
+	// std::vector<int> segsizes(nprocs); // later contain total length of all segments in each proc
+	// std::vector<int> segsizes_local;   // sizes of local segments
+	// // std::vector<int> segstep_local; // step values of local segments
+	// std::vector<int> segsid_local; // seeds of local segments
+	// int totalseglen_local = 0;	 // later contain total length of all local segments
 
-	for (size_t i = 0; i < segments.size(); i++)
-	{
-		totalseglen_local += segments[i].pts.size();
-		segsizes_local.push_back(segments[i].pts.size());
-		// segstep_local.push_back(segments[i].step);
-		// segsid_local.push_back(segments[i].sid);
-		segsid_local.push_back(segments[i].pid);
-	}
-
-	// for (size_t i=0; i<segsizes_local.size(); i++){
-	// 	dprint("rank %d i %ld segl %d", rank, i, segsizes_local[i]);
+	// for (size_t i = 0; i < segments.size(); i++)
+	// {
+	// 	totalseglen_local += segments[i].pts.size();
+	// 	segsizes_local.push_back(segments[i].pts.size());
+	// 	// segstep_local.push_back(segments[i].step);
+	// 	// segsid_local.push_back(segments[i].sid);
+	// 	segsid_local.push_back(segments[i].pid);
 	// }
 
-	// dprint("rank %d, totalseglen_local %d", rank, totalseglen_local);
+	// // for (size_t i=0; i<segsizes_local.size(); i++){
+	// // 	dprint("rank %d i %ld segl %d", rank, i, segsizes_local[i]);
+	// // }
 
-	long nSegments_global;
-	long nSegments_local = segments.size();
-	// get num of segments globally
-	MPI_Allreduce(
-		&nSegments_local,
-		&nSegments_global,
-		1,
-		MPI_LONG,
-		MPI_SUM,
-		comm);
+	// // dprint("rank %d, totalseglen_local %d", rank, totalseglen_local);
 
-	long nSegments_global_granular[nprocs];
-	MPI_Allgather(
-		&nSegments_local,
-		1,
-		MPI_LONG,
-		&nSegments_global_granular[0],
-		1,
-		MPI_LONG,
-		comm);
+	// long nSegments_global;
+	// long nSegments_local = segments.size();
+	// // get num of segments globally
+	// MPI_Allreduce(
+	// 	&nSegments_local,
+	// 	&nSegments_global,
+	// 	1,
+	// 	MPI_LONG,
+	// 	MPI_SUM,
+	// 	comm);
 
-	std::vector<int> segcnt_offsets(nprocs); // segment count offsets
-	segcnt_offsets[0] = 0;
-	long max_nSegments = nSegments_global_granular[0]; // later has maximum number of segments in any process
-	for (size_t i = 1; i < nprocs; i++)
-	{
-		segcnt_offsets[i] = segcnt_offsets[i - 1] + nSegments_global_granular[i - 1];
-		if (max_nSegments < nSegments_global_granular[i])
-			max_nSegments = nSegments_global_granular[i];
-	}
-	// for (int i=0; i<nprocs;i++){
-	// 	dprint("i %d nsg %d", i, segcnt_offsets[i]);
+	// long nSegments_global_granular[nprocs];
+	// MPI_Allgather(
+	// 	&nSegments_local,
+	// 	1,
+	// 	MPI_LONG,
+	// 	&nSegments_global_granular[0],
+	// 	1,
+	// 	MPI_LONG,
+	// 	comm);
+
+	// std::vector<int> segcnt_offsets(nprocs); // segment count offsets
+	// segcnt_offsets[0] = 0;
+	// long max_nSegments = nSegments_global_granular[0]; // later has maximum number of segments in any process
+	// for (size_t i = 1; i < nprocs; i++)
+	// {
+	// 	segcnt_offsets[i] = segcnt_offsets[i - 1] + nSegments_global_granular[i - 1];
+	// 	if (max_nSegments < nSegments_global_granular[i])
+	// 		max_nSegments = nSegments_global_granular[i];
+	// }
+	// // for (int i=0; i<nprocs;i++){
+	// // 	dprint("i %d nsg %d", i, segcnt_offsets[i]);
+	// // }
+
+	// // get number of steps globally split by process into segsizes
+	// MPI_Allgather(
+	// 	&totalseglen_local,
+	// 	1,
+	// 	MPI_INT,
+	// 	&segsizes[0],
+	// 	1,
+	// 	MPI_INT,
+	// 	comm);
+
+	// std::vector<int> seg_offsets(nprocs);
+	// seg_offsets[0] = 0;
+	// int totalseglen_global = segsizes[0];
+	// for (size_t i = 1; i < segsizes.size(); i++)
+	// {
+	// 	seg_offsets[i] = seg_offsets[i - 1] + segsizes[i - 1];
+	// 	totalseglen_global += segsizes[i];
 	// }
 
-	// get number of steps globally split by process into segsizes
-	MPI_Allgather(
-		&totalseglen_local,
-		1,
-		MPI_INT,
-		&segsizes[0],
-		1,
-		MPI_INT,
-		comm);
+	// // dprint("nSegments_global %d", nSegments_global);
 
-	std::vector<int> seg_offsets(nprocs);
-	seg_offsets[0] = 0;
-	int totalseglen_global = segsizes[0];
-	for (size_t i = 1; i < segsizes.size(); i++)
-	{
-		seg_offsets[i] = seg_offsets[i - 1] + segsizes[i - 1];
-		totalseglen_global += segsizes[i];
-	}
+	// // if (rank==7)
+	// // for (size_t i=0; i<segments.size(); i++){
+	// // 	dprint("rank %d i %ld seg %ld", rank, i, segments[i].pts.size());
+	// // }
 
-	// dprint("nSegments_global %d", nSegments_global);
+	// // dprint("rank %d segsizes size %d %d %d %d %d %d %d %d %ld", rank, segsizes[0], segsizes[1], segsizes[2], segsizes[3], segsizes[4], segsizes[5], segsizes[6], segsizes[7], segsizes.size());
 
-	// if (rank==7)
-	// for (size_t i=0; i<segments.size(); i++){
-	// 	dprint("rank %d i %ld seg %ld", rank, i, segments[i].pts.size());
+	// ret = ncmpi_create(comm, filename,
+	// 				   NC_CLOBBER | NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// int dimid_x, dimid_y, dimid_z, dimid_segsize;
+	// int varid_segsizes, varid_seedid, varid_step, varid_px, varid_py, varid_pz;
+
+	// // define dimensions
+
+	// ret = ncmpi_def_dim(ncfile, "x", totalseglen_global, &dimid_x);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// ret = ncmpi_def_dim(ncfile, "y", totalseglen_global, &dimid_y);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// ret = ncmpi_def_dim(ncfile, "z", totalseglen_global, &dimid_z);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// ret = ncmpi_def_dim(ncfile, "segsize", nSegments_global, &dimid_segsize);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// // define variables
+	// int ndims_pos = 1;
+	// int pos_dims[1] = {dimid_x};
+	// ret = ncmpi_def_var(ncfile, "px", NC_DOUBLE, ndims_pos, pos_dims, &varid_px);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// pos_dims[0] = {dimid_y};
+	// ret = ncmpi_def_var(ncfile, "py", NC_DOUBLE, ndims_pos, pos_dims, &varid_py);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// pos_dims[0] = {dimid_z};
+	// ret = ncmpi_def_var(ncfile, "pz", NC_DOUBLE, ndims_pos, pos_dims, &varid_pz);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// pos_dims[0] = {dimid_segsize};
+	// ret = ncmpi_def_var(ncfile, "segsizes", NC_INT, ndims_pos, pos_dims, &varid_segsizes);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// pos_dims[0] = {dimid_segsize};
+	// ret = ncmpi_def_var(ncfile, "seedid", NC_INT, ndims_pos, pos_dims, &varid_seedid);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// pos_dims[0] = {dimid_segsize};
+	// ret = ncmpi_def_var(ncfile, "step", NC_INT, ndims_pos, pos_dims, &varid_step);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// // end define mode
+	// ret = ncmpi_enddef(ncfile);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// // allocate starts and counts, allocate buffer, write
+	// // dprint("rank %d segoffset[rank] %d", rank, seg_offsets[rank]);
+	// MPI_Offset start_segsize[1] = {segcnt_offsets[rank]}, count_segsize[1] = {(long long int)segsizes_local.size()};
+	// dprint("after def mode done");
+	// ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+	// dprint("first int");
+	// // ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
+	// // if (ret != NC_NOERR) handle_error(ret, __LINE__);
+	// dprint("second int");
+	// ret = ncmpi_put_vara_int_all(ncfile, varid_seedid, start_segsize, count_segsize, &segsid_local[0]);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
+
+	// dprint("here rank %d segsize %ld", rank, segments.size());
+	// long long int local_offset = 0;
+	// for (size_t i = 0; i < segments.size(); i++)
+	// {
+
+	// 	MPI_Offset start[1] = {seg_offsets[rank] + local_offset}, count[1] = {(long long int)segments[i].pts.size()};
+
+	// 	double buffer_x[segments[i].pts.size()];
+	// 	double buffer_y[segments[i].pts.size()];
+	// 	double buffer_z[segments[i].pts.size()];
+
+	// 	for (size_t j = 0; j < segments[i].pts.size(); j++)
+	// 	{
+	// 		buffer_x[j] = segments[i].pts[j].coords[0];
+	// 		buffer_y[j] = segments[i].pts[j].coords[1];
+	// 		buffer_z[j] = segments[i].pts[j].coords[2];
+	// 	}
+	// 	// if (rank==5)
+	// 	// 	dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
+
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
+
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_py, start, count, &buffer_y[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
+
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_pz, start, count, &buffer_z[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
+
+	// 	local_offset += segments[i].pts.size();
 	// }
 
-	// dprint("rank %d segsizes size %d %d %d %d %d %d %d %d %ld", rank, segsizes[0], segsizes[1], segsizes[2], segsizes[3], segsizes[4], segsizes[5], segsizes[6], segsizes[7], segsizes.size());
+	// size_t extra_runs = max_nSegments - segments.size();
+	// for (size_t i = 0; i < extra_runs; i++)
+	// {
 
-	ret = ncmpi_create(comm, filename,
-					   NC_CLOBBER | NC_64BIT_OFFSET, MPI_INFO_NULL, &ncfile);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
+	// 	MPI_Offset start[1] = {0}, count[1] = {0};
+	// 	double buffer_x[1];
+	// 	double buffer_y[1];
+	// 	double buffer_z[1];
 
-	int dimid_x, dimid_y, dimid_z, dimid_segsize;
-	int varid_segsizes, varid_seedid, varid_step, varid_px, varid_py, varid_pz;
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
 
-	// define dimensions
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_py, start, count, &buffer_y[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
 
-	ret = ncmpi_def_dim(ncfile, "x", totalseglen_global, &dimid_x);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
+	// 	ret = ncmpi_put_vara_double_all(ncfile, varid_pz, start, count, &buffer_z[0]);
+	// 	if (ret != NC_NOERR)
+	// 		handle_error(ret, __LINE__);
+	// }
 
-	ret = ncmpi_def_dim(ncfile, "y", totalseglen_global, &dimid_y);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	ret = ncmpi_def_dim(ncfile, "z", totalseglen_global, &dimid_z);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	ret = ncmpi_def_dim(ncfile, "segsize", nSegments_global, &dimid_segsize);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	// define variables
-	int ndims_pos = 1;
-	int pos_dims[1] = {dimid_x};
-	ret = ncmpi_def_var(ncfile, "px", NC_DOUBLE, ndims_pos, pos_dims, &varid_px);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	pos_dims[0] = {dimid_y};
-	ret = ncmpi_def_var(ncfile, "py", NC_DOUBLE, ndims_pos, pos_dims, &varid_py);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	pos_dims[0] = {dimid_z};
-	ret = ncmpi_def_var(ncfile, "pz", NC_DOUBLE, ndims_pos, pos_dims, &varid_pz);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	pos_dims[0] = {dimid_segsize};
-	ret = ncmpi_def_var(ncfile, "segsizes", NC_INT, ndims_pos, pos_dims, &varid_segsizes);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	pos_dims[0] = {dimid_segsize};
-	ret = ncmpi_def_var(ncfile, "seedid", NC_INT, ndims_pos, pos_dims, &varid_seedid);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	pos_dims[0] = {dimid_segsize};
-	ret = ncmpi_def_var(ncfile, "step", NC_INT, ndims_pos, pos_dims, &varid_step);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	// end define mode
-	ret = ncmpi_enddef(ncfile);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	// allocate starts and counts, allocate buffer, write
-	// dprint("rank %d segoffset[rank] %d", rank, seg_offsets[rank]);
-	MPI_Offset start_segsize[1] = {segcnt_offsets[rank]}, count_segsize[1] = {(long long int)segsizes_local.size()};
-	dprint("after def mode done");
-	ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-	dprint("first int");
-	// ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
-	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
-	dprint("second int");
-	ret = ncmpi_put_vara_int_all(ncfile, varid_seedid, start_segsize, count_segsize, &segsid_local[0]);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
-
-	dprint("here rank %d segsize %ld", rank, segments.size());
-	long long int local_offset = 0;
-	for (size_t i = 0; i < segments.size(); i++)
-	{
-
-		MPI_Offset start[1] = {seg_offsets[rank] + local_offset}, count[1] = {(long long int)segments[i].pts.size()};
-
-		double buffer_x[segments[i].pts.size()];
-		double buffer_y[segments[i].pts.size()];
-		double buffer_z[segments[i].pts.size()];
-
-		for (size_t j = 0; j < segments[i].pts.size(); j++)
-		{
-			buffer_x[j] = segments[i].pts[j].coords[0];
-			buffer_y[j] = segments[i].pts[j].coords[1];
-			buffer_z[j] = segments[i].pts[j].coords[2];
-		}
-		// if (rank==5)
-		// 	dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_py, start, count, &buffer_y[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_pz, start, count, &buffer_z[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-
-		local_offset += segments[i].pts.size();
-	}
-
-	size_t extra_runs = max_nSegments - segments.size();
-	for (size_t i = 0; i < extra_runs; i++)
-	{
-
-		MPI_Offset start[1] = {0}, count[1] = {0};
-		double buffer_x[1];
-		double buffer_y[1];
-		double buffer_z[1];
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_py, start, count, &buffer_y[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-
-		ret = ncmpi_put_vara_double_all(ncfile, varid_pz, start, count, &buffer_z[0]);
-		if (ret != NC_NOERR)
-			handle_error(ret, __LINE__);
-	}
-
-	// close file
-	ret = ncmpi_close(ncfile);
-	if (ret != NC_NOERR)
-		handle_error(ret, __LINE__);
+	// // close file
+	// ret = ncmpi_close(ncfile);
+	// if (ret != NC_NOERR)
+	// 	handle_error(ret, __LINE__);
 }
 
 void block::parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum)
 {
 
-	// 	dprint("new writer framenum %d", framenum);
+	// // 	dprint("new writer framenum %d", framenum);
 
-	int ret, ncfile, nprocs, rank;
-	char filename[256];
+	// int ret, ncfile, nprocs, rank;
+	// char filename[256];
 
-	rank = comm.rank();
-	nprocs = comm.size();
+	// rank = comm.rank();
+	// nprocs = comm.size();
 
-	strcpy(filename, "segments2.nc");
+	// strcpy(filename, "segments2.nc");
 
-	// create if frame==2 create; afterward open and update file
+	// // create if frame==2 create; afterward open and update file
 
-	int dimid_nParticles, dimid_Time, dimid_Epochs;
+	// int dimid_nParticles, dimid_Time, dimid_Epochs;
 
-	int varid_x, varid_y, varid_z, varid_indexToPid;
-	int ndims = 2;
-	// dprint("nParticles %ld", particles.size());
-	if (framenum == 2)
-	{
-		size_t nParticles, Time;
-		NC_SAFE_CALL(ncmpi_create(comm, filename, NC_CLOBBER, MPI_INFO_NULL, &ncfile));
+	// int varid_x, varid_y, varid_z, varid_indexToPid;
+	// int ndims = 2;
+	// // dprint("nParticles %ld", particles.size());
+	// if (framenum == 2)
+	// {
+	// 	size_t nParticles, Time;
+	// 	NC_SAFE_CALL(ncmpi_create(comm, filename, NC_CLOBBER, MPI_INFO_NULL, &ncfile));
 
-		diy::mpi::all_reduce(comm, particles.size(), nParticles, std::plus<size_t>());
+	// 	diy::mpi::all_reduce(comm, particles.size(), nParticles, std::plus<size_t>());
 
-		// nParticles = 164;
+	// 	// nParticles = 164;
 
-		NC_SAFE_CALL(ncmpi_def_dim(ncfile, "nParticles", nParticles, &dimid_nParticles));
-		NC_SAFE_CALL(ncmpi_def_dim(ncfile, "Time", NC_UNLIMITED, &dimid_Time));
+	// 	NC_SAFE_CALL(ncmpi_def_dim(ncfile, "nParticles", nParticles, &dimid_nParticles));
+	// 	NC_SAFE_CALL(ncmpi_def_dim(ncfile, "Time", NC_UNLIMITED, &dimid_Time));
 
-		int pos_dims[] = {dimid_Time, dimid_nParticles};
-		NC_SAFE_CALL(ncmpi_def_var(ncfile, "x", NC_DOUBLE, ndims, pos_dims, &varid_x));
-		NC_SAFE_CALL(ncmpi_def_var(ncfile, "y", NC_DOUBLE, ndims, pos_dims, &varid_y));
-		NC_SAFE_CALL(ncmpi_def_var(ncfile, "z", NC_DOUBLE, ndims, pos_dims, &varid_z));
+	// 	int pos_dims[] = {dimid_Time, dimid_nParticles};
+	// 	NC_SAFE_CALL(ncmpi_def_var(ncfile, "x", NC_DOUBLE, ndims, pos_dims, &varid_x));
+	// 	NC_SAFE_CALL(ncmpi_def_var(ncfile, "y", NC_DOUBLE, ndims, pos_dims, &varid_y));
+	// 	NC_SAFE_CALL(ncmpi_def_var(ncfile, "z", NC_DOUBLE, ndims, pos_dims, &varid_z));
 
-		// int indexToPid_dims [] = {dimid_nParticles};
-		NC_SAFE_CALL(ncmpi_def_var(ncfile, "indexToPid", NC_INT, ndims, pos_dims, &varid_indexToPid));
+	// 	// int indexToPid_dims [] = {dimid_nParticles};
+	// 	NC_SAFE_CALL(ncmpi_def_var(ncfile, "indexToPid", NC_INT, ndims, pos_dims, &varid_indexToPid));
 
-		// end define mode
-		NC_SAFE_CALL(ncmpi_enddef(ncfile));
+	// 	// end define mode
+	// 	NC_SAFE_CALL(ncmpi_enddef(ncfile));
 
-		// close file
-		NC_SAFE_CALL(ncmpi_close(ncfile));
-	}
+	// 	// close file
+	// 	NC_SAFE_CALL(ncmpi_close(ncfile));
+	// }
 
-	size_t start_idx = 0;
-	diy::mpi::scan(comm, segments.size(), start_idx, std::plus<size_t>());
-	start_idx -= segments.size();
-	// dprint("here %ld", start_idx);
+	// size_t start_idx = 0;
+	// diy::mpi::scan(comm, segments.size(), start_idx, std::plus<size_t>());
+	// start_idx -= segments.size();
+	// // dprint("here %ld", start_idx);
 
-	int nSegments_local = segments.size();
+	// int nSegments_local = segments.size();
 
-	ncfile = 0;
-	NC_SAFE_CALL(ncmpi_open(comm, filename, NC_WRITE, MPI_INFO_NULL, &ncfile));
-	int cur_segsize = 0;
-	if (nSegments_local > 0)
-	{
-		cur_segsize = (int)segments[0].pts.size(); // number of time steps per segment
-	}
+	// ncfile = 0;
+	// NC_SAFE_CALL(ncmpi_open(comm, filename, NC_WRITE, MPI_INFO_NULL, &ncfile));
+	// int cur_segsize = 0;
+	// if (nSegments_local > 0)
+	// {
+	// 	cur_segsize = (int)segments[0].pts.size(); // number of time steps per segment
+	// }
 
-	long long int nParticles;
-	NC_SAFE_CALL(ncmpi_inq_dimid(ncfile, "nParticles", &dimid_nParticles));
-	NC_SAFE_CALL(ncmpi_inq_dimlen(ncfile, dimid_nParticles, &nParticles));
+	// long long int nParticles;
+	// NC_SAFE_CALL(ncmpi_inq_dimid(ncfile, "nParticles", &dimid_nParticles));
+	// NC_SAFE_CALL(ncmpi_inq_dimlen(ncfile, dimid_nParticles, &nParticles));
 
-	long long int Time;
-	NC_SAFE_CALL(ncmpi_inq_dimid(ncfile, "Time", &dimid_Time));
-	NC_SAFE_CALL(ncmpi_inq_dimlen(ncfile, dimid_Time, &Time));
-	NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "x", &varid_x));
-	NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "y", &varid_y));
-	NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "z", &varid_z));
-	NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "indexToPid", &varid_indexToPid));
+	// long long int Time;
+	// NC_SAFE_CALL(ncmpi_inq_dimid(ncfile, "Time", &dimid_Time));
+	// NC_SAFE_CALL(ncmpi_inq_dimlen(ncfile, dimid_Time, &Time));
+	// NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "x", &varid_x));
+	// NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "y", &varid_y));
+	// NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "z", &varid_z));
+	// NC_SAFE_CALL(ncmpi_inq_varid(ncfile, "indexToPid", &varid_indexToPid));
 
-	MPI_Offset start[ndims], count[ndims];
-	start[0] = (framenum - 2) * cur_segsize;
-	count[0] = cur_segsize;
-	start[1] = start_idx;
-	count[1] = segments.size();
+	// MPI_Offset start[ndims], count[ndims];
+	// start[0] = (framenum - 2) * cur_segsize;
+	// count[0] = cur_segsize;
+	// start[1] = start_idx;
+	// count[1] = segments.size();
 
-	//  write segment data for current round and clear segments
+	// //  write segment data for current round and clear segments
 
-	double *data_x = NULL, *data_y = NULL, *data_z = NULL;
-	std::vector<int> indexToPid(nSegments_local);
-	// 	int *cur_pids = NULL;
+	// double *data_x = NULL, *data_y = NULL, *data_z = NULL;
+	// std::vector<int> indexToPid(nSegments_local);
+	// // 	int *cur_pids = NULL;
 
-	if (nSegments_local > 0)
-	{
-		data_x = new double[nSegments_local * cur_segsize];
-		data_y = new double[nSegments_local * cur_segsize];
-		data_z = new double[nSegments_local * cur_segsize];
-		// cur_pids = new int[cur_nSegments];
-		for (size_t i = 0; i < segments.size(); i++)
-		{
-			for (size_t j = 0; j < segments[i].pts.size(); j++)
-			{
+	// if (nSegments_local > 0)
+	// {
+	// 	data_x = new double[nSegments_local * cur_segsize];
+	// 	data_y = new double[nSegments_local * cur_segsize];
+	// 	data_z = new double[nSegments_local * cur_segsize];
+	// 	// cur_pids = new int[cur_nSegments];
+	// 	for (size_t i = 0; i < segments.size(); i++)
+	// 	{
+	// 		for (size_t j = 0; j < segments[i].pts.size(); j++)
+	// 		{
 
-				data_x[i + j * nSegments_local] = segments[i].pts[j].coords[0];
-				data_y[i + j * nSegments_local] = segments[i].pts[j].coords[1];
-				data_z[i + j * nSegments_local] = segments[i].pts[j].coords[2];
-			}
-			// cur_pids[i] = segments[i].pid;
-		}
+	// 			data_x[i + j * nSegments_local] = segments[i].pts[j].coords[0];
+	// 			data_y[i + j * nSegments_local] = segments[i].pts[j].coords[1];
+	// 			data_z[i + j * nSegments_local] = segments[i].pts[j].coords[2];
+	// 		}
+	// 		// cur_pids[i] = segments[i].pid;
+	// 	}
 
-		for (size_t i = 0; i < segments.size(); i++)
-		{
-			indexToPid[i] = segments[i].pid;
-		}
-	}
+	// 	for (size_t i = 0; i < segments.size(); i++)
+	// 	{
+	// 		indexToPid[i] = segments[i].pid;
+	// 	}
+	// }
 
-	NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_x, &start[0], &count[0], data_x));
-	NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_y, &start[0], &count[0], data_y));
-	NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_z, &start[0], &count[0], data_z));
+	// NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_x, &start[0], &count[0], data_x));
+	// NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_y, &start[0], &count[0], data_y));
+	// NC_SAFE_CALL(ncmpi_put_vara_double_all(ncfile, varid_z, &start[0], &count[0], data_z));
 
-	start[0] = (framenum - 2);
-	count[0] = 1;
-	start[1] = start_idx;
-	count[1] = segments.size();
+	// start[0] = (framenum - 2);
+	// count[0] = 1;
+	// start[1] = start_idx;
+	// count[1] = segments.size();
 
-	NC_SAFE_CALL(ncmpi_put_vara_int_all(ncfile,varid_indexToPid, &start[0], &count[0], &indexToPid[0]));
+	// NC_SAFE_CALL(ncmpi_put_vara_int_all(ncfile,varid_indexToPid, &start[0], &count[0], &indexToPid[0]));
 
 
-	// close file
-	NC_SAFE_CALL(ncmpi_close(ncfile));
+	// // close file
+	// NC_SAFE_CALL(ncmpi_close(ncfile));
 
-	segments.clear();
+	// segments.clear();
 
-	if (data_x != NULL)
-		delete[] data_x;
-	if (data_y != NULL)
-		delete[] data_y;
-	if (data_z != NULL)
-		delete[] data_z;
+	// if (data_x != NULL)
+	// 	delete[] data_x;
+	// if (data_y != NULL)
+	// 	delete[] data_y;
+	// if (data_z != NULL)
+	// 	delete[] data_z;
 }
 
 // void block::parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum){
