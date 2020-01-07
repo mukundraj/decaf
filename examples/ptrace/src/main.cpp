@@ -64,8 +64,11 @@ void process_halo_req(block *b, const diy::Master::ProxyWithLink &cp, const diy:
 			cp.dequeue(in[i], incoming_halo);
 			b->process_halo_req(incoming_halo, framenum);
 
+			
 			int dest_gid = incoming_halo.src_gid;
 			int dest_proc = assigner.rank(dest_gid);
+			// dprint("%d [%d %d]", cp.gid(), dest_gid, dest_proc);
+
 			diy::BlockID dest_block = {dest_gid, dest_proc};
 			cp.enqueue(dest_block, incoming_halo);
 		}
@@ -89,7 +92,7 @@ void deq_halo_info(block *b, const diy::Master::ProxyWithLink &cp, const diy::As
 }
 
 // for dynamic processing and queuing
-void process_halo_dynamic(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int framenum, block)
+void process_halo_dynamic(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int framenum)
 {
 
 	b->process_halo_dynamic(framenum);
@@ -180,7 +183,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	diy::mpi::communicator world(decaf->con_comm_handle());
 
 	// recomputed particle file ("particles2.nc") includes global cell indices for seeds
-	std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part." + std::to_string(world.size());
+	std::string fname_particles = "particles2.nc", fname_graphpart = "graph.info.part." + std::to_string(world.size());
+	std::string fname_graph = "graph.info";
 
 	// build kd tree
 	mpas1.create_cells_kdtree();
@@ -234,14 +238,14 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 			}
 
 			// all_gather data_bar
-			world.barrier();
-			double time_0 = MPI_Wtime();
+			// world.barrier();
+			// double time_0 = MPI_Wtime();
 
-			all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
+			// all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
 			
-			world.barrier();
-			double time_1 = MPI_Wtime();
-			time_gatherd += time_1 - time_0;
+			// world.barrier();
+			// double time_1 = MPI_Wtime();
+			// time_gatherd += time_1 - time_0;
 
 			mpas1.update_data(data_id, framenum, data_bar_int, data_bar_dbl);
 
@@ -256,10 +260,42 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 			{ // all static arrived
 
 				// create links
-				// diy::Link* link = new diy::Link;
-				RCLink *l = new RCLink(DIM, domain, domain);
+				diy::Link* link = new diy::Link;
+				// RCLink *l = new RCLink(DIM, domain, domain);
+
+				std::set<int> links;
+				mpas1.create_links(fname_graph, fname_graphpart, links);
+				mpas1.populate_gVIdxtoGid(fname_graphpart, links, world);
+
+				for (auto link_gid : links) {
+					diy::BlockID  neighbor;
+					neighbor.gid  = link_gid;                     // gid of the neighbor block
+					neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+					link->add_neighbor(neighbor);                // add the neighbor block to the link
+				}
+
+				// dprint("rank %d size %ld cellIndex %ld", world.rank(), links.size(), mpas1.cellIndex.size());
+				// if (world.rank()==0)
+					for (auto link_gid : links) {
+
+						fprintf(stderr, "[%d %d]", world.rank(), link_gid);
+					}
+					fprintf(stderr, "\n");
+
 				// add links and block to master
-				master.add(mpas1.gid, &mpas1, l);
+				master.add(mpas1.gid, &mpas1, link);
+
+				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+					enq_halo_info(b, cp, assigner);
+				});
+				master.exchange();
+				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+					process_halo_req(b, cp, assigner, framenum);
+				});
+				master.exchange();
+				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+					deq_halo_info(b, cp, assigner, framenum);
+				});
 
 				// initialize particles
 				if (world.rank() == 0)
@@ -272,49 +308,40 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 			{   // all dynamic arrived
 				// if ((data_id==13 && framenum>1) || (data_id==15 && framenum==1)){ // all dynamic arrived
 
-				// kdtre based balance
+				// formerly kdtre based balance
 
 				// dprint("IN HERE %d", framenum);
 
-				bool wrap = false;
-				size_t samples = 512;
+				// dynamic halo exchange
+				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
+                {	
+					process_halo_dynamic(b, cp, assigner, framenum);
+				});
+				master.exchange();
+				master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
+                {	
+					deq_halo_dynamic(b, cp, assigner, framenum);
+				});
 
-				world.barrier();
-				double time_0 = MPI_Wtime();
-
-				diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
-				// master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-				// {
-				// 	dprint("inside");
-				// 	dprint ("psize %ld", b->particles.size());
-				// });
-
-				// advect
-
-				world.barrier();
-				double time_1 = MPI_Wtime();
-				time_lb += time_1 - time_0;
 
 				//do{
 				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 					// update field
 					pl.update_velocity_vectors(*b, framenum);
 
-					// dprint("here2");
 					// trace particles
-					pl.compute_epoch(b, framenum);
-					// dprint("here3 rank %d", world.rank());
+					// pl.compute_epoch(b, framenum);
 
 					// b->parallel_write_simstep_segments(world, framenum);
 				});
 
-				world.barrier();
-				double time_2 = MPI_Wtime();
+				// world.barrier();
+				// double time_2 = MPI_Wtime();
 				
-				time_trace += time_2 - time_1;
-				//}while(reduce of all remaining particles not zero)
+				// time_trace += time_2 - time_1;
+				// //}while(reduce of all remaining particles not zero)
 				if (world.rank() == 0)
-					dprint("Completed dynamic frame %d", framenum);
+					dprint("Completed, dynamic frame %d", framenum);
 				
 			}
 

@@ -67,7 +67,7 @@ std::vector<std::vector<int> > read_csv(const std::string &filename)
         v.clear();
         std::stringstream ss(line);
 
-        while (getline(ss,field,','))  // break line into comma delimitted fields
+        while (getline(ss,field,' '))  // break line into comma delimitted fields
         {
             v.push_back(std::stoi(field));  // add each field to the 1D array
         }

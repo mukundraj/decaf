@@ -31,7 +31,7 @@ public:
 
 	
 
-	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
+	void populate_gVIdxtoGid(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 	
 	void init_seeds_mpas(std::string &fname_particles, int framenum, int rank);
 
@@ -47,6 +47,8 @@ public:
 
 	void parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum);
 	void parallel_write_segments(diy::mpi::communicator &comm, int max_steps);
+
+	void create_links(const std::string &fname_graphinfo, const std::string &fname_graphpart, std::set<int> &links);
 
 };
 

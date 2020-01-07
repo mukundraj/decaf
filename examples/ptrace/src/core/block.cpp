@@ -37,15 +37,19 @@ std::vector<Halo> block::get_halo_info()
 		}
 
 		// iterate over vertices on cell
-		for (size_t j = i * maxEdges; j < (i + 1) * maxEdges; j++)
+		// for (size_t j = i * maxEdges; j < (i + 1) * maxEdges; j++)
+		for (size_t j = i * maxEdges; j < i*maxEdges+nEdgesOnCell[i]; j++)
 		{
-
 			int nbr_vertexID = verticesOnCell[j];
 
 			// make sure nbr_vertex is valid
 			if (nbr_vertexID != 0)
 			{
 				int nbr_gid = gVIdxToGid[nbr_vertexID - 1];
+
+				if (gid==1 && nbr_gid==5){
+					dprint("in here %d, ij %ld %ld, nbr_gid %d, indexToCellID %d", nbr_vertexID, i, j, nbr_gid, indexToCellID[i]);
+				}
 
 				// if neighbor gid != current gid add then add vertex id request to nbr_gid
 				if (nbr_gid != gid)
@@ -65,6 +69,8 @@ std::vector<Halo> block::get_halo_info()
 					  Halo h;
 					  h.src_gid = gid;
 					  h.dest_gid = element.first;
+
+					//   dprint("<<<%d, %d>>>", gid, element.first);
 					  h.glCellIDs = std::move(element.second.first);
 					  h.glVertexIDs = std::move(element.second.second);
 
@@ -86,10 +92,16 @@ void block::process_halo_req(Halo &h, int framenum)
 		h.xCell.push_back(xCell[cellIndex[h.glCellIDs[i]]]);
 		h.yCell.push_back(yCell[cellIndex[h.glCellIDs[i]]]);
 		h.zCell.push_back(zCell[cellIndex[h.glCellIDs[i]]]);
+
+		for (size_t j=0; j<nVertLevels; j++){
+			h.vertVelocityTop.push_back(vertVelocityTop[framenum % 2][j + nVertLevels * cellIndex[h.glCellIDs[i]]]);
+		}
 	}
 
-	// populate vert info for requested vertex ids
+	// dprint("h.vertVelocityTop %ld", h.vertVelocityTop.size());
+	// dprint("velocityZv[framenum  2] %ld vertVelocityTop[framenum  2] %ld", velocityZv[framenum % 2].size(), vertVelocityTop[framenum % 2].size() );
 
+	// populate vert info for requested vertex ids
 	for (size_t i = 0; i < h.glVertexIDs.size(); i++)
 	{
 
@@ -101,11 +113,15 @@ void block::process_halo_req(Halo &h, int framenum)
 			h.velocityXv.push_back(velocityXv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
 			h.velocityYv.push_back(velocityYv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
 			h.velocityZv.push_back(velocityZv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.vertVelocityTop.push_back(vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			
 			h.zMid.push_back(zMid[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
 			h.zTop.push_back(zTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
 		}
+		
 	}
+	// for (size_t i=0; i < h.glCellIDs.size() ; i++){
+		
+	// }
 }
 
 void block::update_halo_info(Halo &h, int framenum)
@@ -119,6 +135,7 @@ void block::update_halo_info(Halo &h, int framenum)
 	xCell.resize(nCells_all);
 	yCell.resize(nCells_all);
 	zCell.resize(nCells_all);
+	vertVelocityTop[framenum % 2].resize(nCells_all * nVertLevels);
 
 	for (size_t i = 0; i < h.glCellIDs.size(); i++)
 	{
@@ -131,6 +148,10 @@ void block::update_halo_info(Halo &h, int framenum)
 		xCell[nCells_local + i] = h.xCell[i];
 		yCell[nCells_local + i] = h.yCell[i];
 		zCell[nCells_local + i] = h.zCell[i];
+
+		for (size_t j=0; j<nVertLevels; j++){
+			vertVelocityTop[framenum % 2][j + nVertLevels * (nCells_local + i)] = h.vertVelocityTop[j + nVertLevels * i];
+		}
 	}
 
 	// iterate through each incoming vertex and append info to local arrays
@@ -144,7 +165,6 @@ void block::update_halo_info(Halo &h, int framenum)
 	velocityXv[framenum % 2].resize(nVertices_all * nVertLevels);
 	velocityYv[framenum % 2].resize(nVertices_all * nVertLevels);
 	velocityZv[framenum % 2].resize(nVertices_all * nVertLevels);
-	vertVelocityTop[framenum % 2].resize(nVertices_all * nVertLevels);
 	zMid[framenum % 2].resize(nVertices_all * nVertLevels);
 	zTop[framenum % 2].resize(nVertices_all * nVertLevels);
 
@@ -164,11 +184,13 @@ void block::update_halo_info(Halo &h, int framenum)
 			velocityXv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityXv[j + nVertLevels * i];
 			velocityYv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityYv[j + nVertLevels * i];
 			velocityZv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityZv[j + nVertLevels * i];
-			vertVelocityTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.vertVelocityTop[j + nVertLevels * i];
+			
+			// vertVelocityTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.vertVelocityTop[j + nVertLevels * i];
 			zMid[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
 			zTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
 		}
 	}
+	
 }
 
 // prepare to send back dynamic request: velocityXv,... using halo_info
@@ -242,38 +264,120 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 	}
 }
 
-void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world)
-{
+// creates the cellsOnCell from file (as opposed to from the incoming data)
+void block::create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links){
 
-	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphinfo.c_str());
+	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph.c_str());
+	cellsOnCell.clear();
+	cellsOnCell.resize(maxEdges*indexToCellID.size());
+
+	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphpart.c_str());
 
 	for (size_t i = 0; i < partn_ids.size(); i++)
 		gcIdxToGid.push_back(partn_ids[i][0]);
 
+
+	int idx = 0;
 	for (size_t i = 0; i < partn_ids.size(); i++)
 	{
+		
 		if (gid == partn_ids[i][0])
 		{
-			for (int j = cellIndex[i + 1] * maxEdges; j < (cellIndex[i + 1] + 1) * maxEdges; j++)
-			{
-				if (cellsOnCell[j] != 0)
-				{
-					if (partn_ids[cellsOnCell[j] - 1][0] != gid)
-					{
-						links.insert(partn_ids[cellsOnCell[j] - 1][0]);
-					}
+			
+			
+			// iterate over neighbors
+			for (int j=0; j<cell_nbrs[i+1].size(); j++){
+				
+				int nbr_cgid = cell_nbrs[i+1][j];
+				cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// check if neighbor in different partition
+				if (partn_ids[nbr_cgid-1][0] != gid){
+					links.insert(partn_ids[nbr_cgid-1][0]);
 				}
 			}
+			idx++;
+
+
+			// for (int j = cellIndex[i + 1] * maxEdges; j < (cellIndex[i + 1] + 1) * maxEdges; j++)
+			// {
+			// 	// dprint("cellIndex.find(cellsOnCell[j]) %d" , cellIndex.find(cellsOnCell[j]) != cellIndex.end());
+			// 	if (cellsOnCell[j] != 0)
+			// 	{	
+			// 		if (partn_ids[cellsOnCell[j] - 1][0] != gid)
+			// 		{	
+			// 			if (partn_ids[cellsOnCell[j] - 1][0] == 2 && world.rank()==4){
+			// 				dprint("H i %ld j %d, cellsOnCell[j] %d", i+1, j, cellsOnCell[j]);
+
+			// 				for (int kk=0; kk<maxEdges; kk++)
+			// 					fprintf(stderr, "%ld=%d ", cellIndex[i + 1] * maxEdges+kk, cellsOnCell[cellIndex[i + 1] * maxEdges+kk]);
+			// 			}
+			// 			links.insert(partn_ids[cellsOnCell[j] - 1][0]);
+			// 		}
+			// 	}
+			// }
 		}
 	}
 
-	// dprint("links size %ld", links.size());
+
+	
+
+}
+
+void block::populate_gVIdxtoGid(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world)
+{
+
+	// if (world.rank() == 7)
+	// {
+	// 	for (int i = 0; i < 24; i++)
+	// 	{
+	// 		fprintf(stderr, "%d ", cellsOnCell[i]);
+	// 	}
+
+	// 	dprint("cellsOnCell %ld", cellsOnCell.size());
+	// }
+
+	// if (world.rank()==4)
+	// 	for (int i=0; i<indexToCellID.size(); i++){
+	// 		fprintf(stderr, "%d ", indexToCellID[i]);
+	// 	}
+
+	// std::vector<std::vector<int>> partn_ids = read_csv(fname_graphinfo.c_str());
+
+	// for (size_t i = 0; i < partn_ids.size(); i++)
+	// 	gcIdxToGid.push_back(partn_ids[i][0]);
+
+	// for (size_t i = 0; i < partn_ids.size(); i++)
+	// {
+	// 	if (gid == partn_ids[i][0])
+	// 	{
+	// 		for (int j = cellIndex[i + 1] * maxEdges; j < (cellIndex[i + 1] + 1) * maxEdges; j++)
+	// 		{
+	// 			// dprint("cellIndex.find(cellsOnCell[j]) %d" , cellIndex.find(cellsOnCell[j]) != cellIndex.end());
+	// 			if (cellsOnCell[j] != 0)
+	// 			{	
+	// 				if (partn_ids[cellsOnCell[j] - 1][0] != gid)
+	// 				{	
+	// 					if (partn_ids[cellsOnCell[j] - 1][0] == 2 && world.rank()==4){
+	// 						dprint("H i %ld j %d, cellsOnCell[j] %d", i+1, j, cellsOnCell[j]);
+
+	// 						for (int kk=0; kk<maxEdges; kk++)
+	// 							fprintf(stderr, "%ld=%d ", cellIndex[i + 1] * maxEdges+kk, cellsOnCell[cellIndex[i + 1] * maxEdges+kk]);
+	// 					}
+	// 					links.insert(partn_ids[cellsOnCell[j] - 1][0]);
+	// 				}
+	// 			}
+	// 		}
+	// 	}
+	// }
+
 
 	/* now populate gVIdxtoGid */
 
 	// get nVertices_global
 	diy::mpi::all_reduce(world, indexToVertexID.size(), nVertices_global, std::plus<size_t>());
 	gVIdxToGid.resize(nVertices_global);
+
+	dprint("nVertices_global %ld", nVertices_global);
 
 	// all_gather the gids
 	std::vector<int> all_gids;
@@ -282,13 +386,15 @@ void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> 
 	// all gather indexToVertexID
 	std::vector<std::vector<int>> all_indexToVertexID;
 	diy::mpi::all_gather(world, indexToVertexID, all_indexToVertexID);
+	// int sum  = 0;
 	for (size_t i = 0; i < all_indexToVertexID.size(); i++)
 	{
 		for (size_t j = 0; j < all_indexToVertexID[i].size(); j++)
 		{
-
+			// dprint("%ld, %d, %d", i, all_indexToVertexID[i][j] - 1, all_indexToVertexID[i][j]);
 			gVIdxToGid[all_indexToVertexID[i][j] - 1] = all_gids[i];
 		}
+		// sum += all_indexToVertexID[i].size();
 	}
 }
 

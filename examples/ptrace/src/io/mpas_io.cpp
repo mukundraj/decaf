@@ -118,7 +118,7 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 
 				case 17:	//fprintf(stderr, "Recv vertVelocityTop %d,\n", data_id);
 						vertVelocityTop[frame_no%2] = std::move(data_dbl);
-						// dprint("vertVelocityTop.. %f %f", vertVelocityTop[frame_no%2][0], vertVelocityTop[frame_no%2][1]);
+						// dprint("vertVelocityTop.. %f %ld", vertVelocityTop[frame_no%2][0], vertVelocityTop[frame_no%2].size());
 						break;
 
 				case 18:{//fprintf(stderr, "Recv cellsOnCell %d,\n", data_id);
