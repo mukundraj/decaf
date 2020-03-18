@@ -262,11 +262,11 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				master.add(mpas1.gid, &mpas1, l);
 
 				// initialize particles
-				if (world.rank() == 0)
-				{
+				//if (world.rank() == 0)
+				//{
 					// mpas1.generate_new_particle_file();
 					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
-				}
+				//}
 			}
 			else if (framenum > 1 && data_id == 13)
 			{   // all dynamic arrived
@@ -282,7 +282,9 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				world.barrier();
 				double time_0 = MPI_Wtime();
 
-				diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
+				// ### Uncomment following line to enable kdtree ###
+				// diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
+
 				// master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
 				// {
 				// 	dprint("inside");
@@ -340,6 +342,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 int main()
 {
+	
 
 	block mpas1;
 	double dtSim = 7200, dtParticle = 300;

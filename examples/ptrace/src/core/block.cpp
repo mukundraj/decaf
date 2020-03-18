@@ -448,6 +448,8 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 	int varid_xParticle, varid_yParticle, varid_zParticle, varid_zLevelParticle, varid_glCellIdx;
 	std::vector<double> xParticle, yParticle, zParticle, zLevelParticle;
 	std::vector<int> glCellIdx;
+	std::vector<int> currentBlock;
+	int varid_currentBlock;
 
 	size_t nParticles;
 	size_t nTime;
@@ -471,6 +473,7 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 	zParticle.resize(nTime * nParticles);
 	zLevelParticle.resize(nTime * nParticles);
 	glCellIdx.resize(nParticles);
+	currentBlock.resize(nTime * nParticles);
 	const size_t start_t_p[2] = {0, 0}, size_t_p[2] = {nTime, nParticles};
 
 	NC_SAFE_CALL(nc_get_vara_double(ncid, varid_xParticle, start_t_p, size_t_p, &xParticle[0]));
@@ -484,6 +487,13 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 
 	NC_SAFE_CALL(nc_close(ncid));
 
+	int ncid_p;
+
+	NC_SAFE_CALL(nc_open("particles.nc", NC_CLOBBER, &ncid_p));
+	NC_SAFE_CALL(nc_inq_varid(ncid, "currentBlock", &varid_currentBlock));
+	NC_SAFE_CALL(nc_get_vara_int(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
+	NC_SAFE_CALL(nc_close(ncid_p));
+
 	for (size_t i = 0; i < glCellIdx.size(); i++)
 	{
 
@@ -494,7 +504,8 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 
 		// if (init==130){
 		// if (init==410 || init == 130){
-		if (init < 7034){
+        
+		if (rank == currentBlock[i]){
 			EndPt p;
 			p.pid = init;
 			p.sid = init;
