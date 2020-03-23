@@ -30,9 +30,10 @@ public:
 	vector<Segment> segments; // finished segments of particle traces
 
 	
-
+	void create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links);
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
-	
+
+	void init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum);
 	void init_seeds_mpas(std::string &fname_particles, int framenum, int rank);
 
 	void generate_new_particle_file();

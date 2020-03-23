@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include "nabo/nabo.h"
+#include <diy/mpi.hpp>
 
 class mpas_io
 {
@@ -17,7 +18,7 @@ public:
 	double cx, cy, cz;
 
 	/* Field data */
-	size_t nCells, nEdges, nVertices, nVertLevels, maxEdges, nVertLevelsP1;
+	long long int nCells, nEdges, nVertices, nVertLevels, maxEdges, nVertLevelsP1;
     std::vector<double> latVertex, lonVertex, xVertex, yVertex, zVertex;
     std::vector<double> xyzCell, xCell, yCell, zCell;
     std::vector<int> indexToVertexID, indexToCellID;
@@ -26,6 +27,7 @@ public:
     std::vector<double> velocityX, velocityY, velocityZ;
     std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
     std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
+	std::vector<double> zTop_;
     std::vector<double> zTopVertex, zTopVertexNorm;
     std::map<int, int> vertexIndex, cellIndex;
     std::vector<int> nEdgesOnCell, maxLevelCell;
@@ -46,6 +48,7 @@ public:
 	mpas_io();
 
 	void update_data(int data_id, int frame_no, std::vector<int> &data_int, std::vector<double> &data_dbl);
+	void loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std::string& filename, long long int time_id);
 
 
 	/* KDTree */

@@ -49,9 +49,13 @@ INCLUDE_DIRECTORIES ( "${EIGEN3_INCLUDE_DIR}"  )
 
 
 
-add_executable 	(ptrace src/main.cpp src/core/ptrace.cpp src/io/mpas_io.cpp src/core/pathline.cpp src/core/ptrace.cpp src/core/block.cpp src/utils/misc.cpp src/core/geometry_utils.cpp src/core/advect.cpp)
-target_include_directories(ptrace PRIVATE src/io src/core src/utils)
-target_link_libraries (ptrace  ${NetCDF_LIBRARIES} ${bredala_transports} ${PNETCDF_LIBRARY} bredala_datamodel manala decaf ${libnabo_LIBRARIES} ${PNETCDF_LIBRARY} )
+# add_executable 	(ptrace src/main.cpp src/core/ptrace.cpp src/io/mpas_io.cpp src/core/pathline.cpp src/core/ptrace.cpp src/core/block.cpp src/utils/misc.cpp src/core/geometry_utils.cpp src/core/advect.cpp)
+# target_include_directories(ptrace PRIVATE src/io src/core src/utils)
+# target_link_libraries (ptrace  ${NetCDF_LIBRARIES} ${bredala_transports} ${PNETCDF_LIBRARY} bredala_datamodel manala decaf ${libnabo_LIBRARIES} ${PNETCDF_LIBRARY} )
+
+add_executable 	(sptrace src/pmain.cpp src/core/ptrace.cpp src/io/mpas_io.cpp src/core/pathline.cpp src/core/ptrace.cpp src/core/block.cpp src/utils/misc.cpp src/core/geometry_utils.cpp src/core/advect.cpp)
+target_include_directories(sptrace PRIVATE src/io src/core src/utils)
+target_link_libraries (sptrace  ${NetCDF_LIBRARIES} ${bredala_transports} ${PNETCDF_LIBRARY} bredala_datamodel manala decaf ${libnabo_LIBRARIES} ${PNETCDF_LIBRARY} )
 
 add_library     (adapter MODULE src/adapter/adapter.cpp)
 # .SO file extension on Linux/Mac OS

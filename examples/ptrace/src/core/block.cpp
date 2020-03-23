@@ -7,7 +7,7 @@
 #include "nabo/nabo.h"
 #include <map>
 #include <utility>
-// #include <pnetcdf.h>
+#include <pnetcdf.h>
 
 std::vector<Halo> block::get_halo_info()
 {
@@ -242,6 +242,47 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 	}
 }
 
+// creates the cellsOnCell from file (as opposed to from the incoming data)
+void block::create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links){
+
+	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph.c_str());
+	cellsOnCell.clear();
+	cellsOnCell.resize(maxEdges*indexToCellID.size());
+
+	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphpart.c_str());
+
+	for (size_t i = 0; i < partn_ids.size(); i++)
+		gcIdxToGid.push_back(partn_ids[i][0]);
+
+
+	int idx = 0;
+	for (size_t i = 0; i < partn_ids.size(); i++)
+	{
+		
+		if (gid == partn_ids[i][0])
+		{
+			
+			
+			// iterate over neighbors
+			for (int j=0; j<cell_nbrs[i+1].size(); j++){
+				
+				int nbr_cgid = cell_nbrs[i+1][j];
+				cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// check if neighbor in different partition
+				if (partn_ids[nbr_cgid-1][0] != gid){
+					links.insert(partn_ids[nbr_cgid-1][0]);
+				}
+			}
+			idx++;
+
+		}
+	}
+
+
+	
+
+}
+
 void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world)
 {
 
@@ -437,6 +478,63 @@ void block::generate_new_particle_file()
 		NC_SAFE_CALL(nc_close(ncid));
 
 	} // if (gid==0)
+}
+
+void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum){
+
+	// initialize seeds directly from particles.nc
+
+	int ncid;
+	int dimid_particles, dimid_time;
+	int varid_xParticle, varid_yParticle, varid_zParticle, varid_zLevelParticle, varid_glCellIdx;
+	std::vector<double> xParticle, yParticle, zParticle, zLevelParticle;
+	std::vector<int> glCellIdx;
+	std::vector<int> currentBlock;
+	int varid_currentBlock;
+
+	MPI_Offset nParticles;
+	MPI_Offset nTime;
+
+	PNC_SAFE_CALL(ncmpi_open(world, fname_particles.c_str(), NC_NOWRITE, MPI_INFO_NULL, &ncid));
+
+	PNC_SAFE_CALL(ncmpi_inq_dimid(ncid, "nParticles", &dimid_particles));
+	PNC_SAFE_CALL(ncmpi_inq_dimid(ncid, "Time", &dimid_time));
+
+	PNC_SAFE_CALL(ncmpi_inq_dimlen(ncid, dimid_particles, &nParticles));
+	PNC_SAFE_CALL(ncmpi_inq_dimlen(ncid, dimid_time, &nTime));
+
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "xParticle", &varid_xParticle));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "yParticle", &varid_yParticle));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "zParticle", &varid_zParticle));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "zLevelParticle", &varid_zLevelParticle));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "glCellIdx", &varid_glCellIdx));
+
+	xParticle.resize(nTime * nParticles);
+	yParticle.resize(nTime * nParticles);
+	zParticle.resize(nTime * nParticles);
+	zLevelParticle.resize(nTime * nParticles);
+	glCellIdx.resize(nParticles);
+	currentBlock.resize(nTime * nParticles);
+	const MPI_Offset start_t_p[2] = {0, 0}, size_t_p[2] = {nTime, nParticles};
+
+	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_xParticle, start_t_p, size_t_p, &xParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_yParticle, start_t_p, size_t_p, &yParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_zParticle, start_t_p, size_t_p, &zParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_zLevelParticle, start_t_p, size_t_p, &zLevelParticle[0]));
+
+	int dimids_glCellIdx[] = {dimid_particles};
+	MPI_Offset start_glCellIdx[1] = {0}, count_glCellIdx[1] = {nParticles};
+	PNC_SAFE_CALL(ncmpi_get_vara_int(ncid, varid_glCellIdx, start_glCellIdx, count_glCellIdx, &glCellIdx[0]));
+
+
+	// int ncid_p;
+
+	// NC_SAFE_CALL(nc_open("particles.nc", NC_CLOBBER, &ncid_p));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "currentBlock", &varid_currentBlock));
+	PNC_SAFE_CALL(ncmpi_get_vara_int(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
+	PNC_SAFE_CALL(ncmpi_close(ncid));	
+
+
 }
 
 void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank)

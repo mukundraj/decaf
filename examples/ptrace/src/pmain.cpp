@@ -182,10 +182,9 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	// recomputed particle file ("particles2.nc") includes global cell indices for seeds
 	std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part." + std::to_string(world.size());
 
-	// build kd tree
-	mpas1.create_cells_kdtree();
+	// // build kd tree
+	// mpas1.create_cells_kdtree();
 
-	
 
 	double time_trace = 0, time_gatherd = 0, time_lb = 0;
 
@@ -208,7 +207,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 		// get the values and add them
 		for (size_t i = 0; i < in_data.size(); i++)
-		{
+		{   
 
 			SimpleFieldi d_metadata = in_data[i]->getFieldData<SimpleFieldi>("field_id");
 			SimpleFieldi frame_num = in_data[i]->getFieldData<SimpleFieldi>("frame_num");
@@ -265,7 +264,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				//if (world.rank() == 0)
 				//{
 					// mpas1.generate_new_particle_file();
-					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
+					// mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
 				//}
 			}
 			else if (framenum > 1 && data_id == 13)
@@ -302,10 +301,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					// update field
 					pl.update_velocity_vectors(*b, framenum);
 
-					// dprint("here2");
 					// trace particles
-					pl.compute_epoch(b, framenum);
-					// dprint("here3 rank %d", world.rank());
+					// pl.compute_epoch(b, framenum);
 
 					// b->parallel_write_simstep_segments(world, framenum);
 				});
@@ -329,8 +326,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 	} // outer while loop decaf get
 
-	if (world.rank()==0)
-		dprint("rank, %d, times trace lb gatherd, %f, %f, %f, ", world.size(), time_trace, time_lb, time_gatherd);
+	// if (world.rank()==0)
+	// 	dprint("rank, %d, times trace lb gatherd, %f, %f, %f, ", world.size(), time_trace, time_lb, time_gatherd);
 
 	// dprint("writing segments");
 	// write segments to file in parallel
@@ -340,41 +337,19 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	// });
 }
 
-int main()
+using namespace std;
+
+int main(int argc, char* argv[])
 {
+     diy::mpi::environment     env(argc, argv); // equivalent of MPI_Init(argc, argv)/MPI_Finalize()
+    diy::mpi::communicator world;
 
-	block mpas1;
-	double dtSim = 7200, dtParticle = 300;
-	pathline pl(mpas1, dtSim, dtParticle);
-
-	// define the workflow
-	Workflow workflow;
-	//make_wflow(workflow);
-	Workflow::make_wflow_from_json(workflow, "mpas_decaf_flowvis.json");
-
-	MPI_Init(NULL, NULL);
-
-	// create decaf
-	Decaf *decaf = new Decaf(MPI_COMM_WORLD, workflow);
-
-	diy::mpi::communicator world(decaf->con_comm_handle());
-	// dprint("diy world size: %d", world.size() );
-
-	// if (world.rank() == 1)
-	//    {
-
-	//        volatile  int dwait=0;
-	//        fprintf(stderr , "pid %ld  waiting  for  debugger\n"
-	//            , (long)getpid ());
-	//            while(dwait==0) { /*  change  ’i’ in the  debugger  */ }
-	//    }
-	//    world.barrier();
-
-	diy::FileStorage storage("./DIY.XXXXXX");
+    diy::FileStorage storage("./DIY.XXXXXX");
 	int nblocks = world.size();
 	int threads = 1;
 	int mem_blocks = -1;
 
+    
 	diy::Master master(world,
 					   threads,
 					   mem_blocks,
@@ -386,13 +361,32 @@ int main()
 
 	diy::RoundRobinAssigner assigner(world.size(), nblocks);
 
-	std::vector<int> gids;					 // global ids of local blocks
-	assigner.local_gids(world.rank(), gids); // get the gids of local blocks
-	mpas1.gid = gids[0];
 
-	con(decaf, master, assigner, mpas1, pl);
+    // read graph.info and build links & read partition info
+   
+     master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
+    {   
+        std::string fname_graph = "graph.info", fname_graphpart = "graph.info.part." + std::to_string(world.size());
+        set<int> links;
+        b->create_links(fname_graph, fname_graphpart, links);
 
-	delete decaf;
+		// read mpas data
+		std::string fname_data = "output.nc";
+		b->loadMeshFromNetCDF_CANGA(world, fname_data, 0);
 
-	// MPI_Finalize(); // called by diy for consumers
+		std::string fname_particles = "particles.nc";
+
+		// read seeds and filter locations
+		b->loadMeshFromNetCDF_CANGA(world, fname_particles, 0);
+
+    });
+
+	
+    
+    // advect
+
+
+    // write out segments
+
+    dprint("done");
 }
