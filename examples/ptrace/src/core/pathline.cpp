@@ -613,3 +613,25 @@ void pathline::update_velocity_vectors(mpas_io &mpas1, int frame_no)
 
 	// }
 }
+
+// setting velocity vectors for streamline computation
+void pathline::set_velocity_vectors(mpas_io &mpas1){
+
+	uVertexVelocities[0] = mpas1.uVertexVelocity.data();
+	vVertexVelocities[0] = mpas1.vVertexVelocity.data();
+	wVertexVelocities[0] = mpas1.wVertexVelocity.data();
+
+	uVertexVelocities[1] = mpas1.uVertexVelocity.data();
+	vVertexVelocities[1] = mpas1.vVertexVelocity.data();
+	wVertexVelocities[1] = mpas1.wVertexVelocity.data();
+
+	zMid_cur = mpas1.zMid_.data();
+	zTop_cur = mpas1.zTop_.data();
+
+	zMid_cur_size = mpas1.zMid_.size();
+	zTop_cur_size = mpas1.zTop_.size();
+
+	vertVelocityTop_cur = mpas1.vertVelocityTop_.data();
+
+
+}

@@ -214,7 +214,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	    varid_indexToVertexID, varid_indexToCellID,
 	    varid_velocityX, varid_velocityY, varid_velocityZ, 
 		varid_uVertexVelocity, varid_vVertexVelocity, varid_wVertexVelocity, 
-		varid_cellsOnCell;
+		varid_cellsOnCell, varid_zMid, varid_vertVelocityTop;
 		
 	int varid_zTop;
 
@@ -252,6 +252,8 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "vVertexVelocity", &varid_vVertexVelocity));
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "wVertexVelocity", &varid_wVertexVelocity));
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "cellsOnCell", &varid_cellsOnCell));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "zMid", &varid_zMid));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "vertVelocityTop", &varid_vertVelocityTop));
 
 	const MPI_Offset start_cells[1] = {0}, size_cells[1] = {nCells};
 
@@ -318,11 +320,17 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_velocityZ, start_time_cell_level, size_time_cell_level, &velocityZ[0]) );
 
 	zTop_.resize(nCells*nVertLevels);
+	zMid_.resize(nCells*nVertLevels);
 	zTopVertex.resize(nVertices*nVertLevels);
 	zTopVertexNorm.resize(nVertices*nVertLevels);
-	
 
 	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zTop, start_time_cell_level, size_time_cell_level, &zTop_[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zMid, start_time_cell_level, size_time_cell_level, &zMid_[0]) );
+
+	vertVelocityTop_.resize(nCells * nVertLevelsP1);
+	const MPI_Offset start_time_cell_levelP1[3] = {time_id, 0, 0}, size_time_cell_levelP1[3] = {1, nCells, nVertLevelsP1};
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_vertVelocityTop, start_time_cell_level, size_time_cell_level, &vertVelocityTop_[0]) );
+
 
 	// getting velocity at one time at vertex centers
 	const MPI_Offset start_time_vertex_level[3] = {time_id, 0, 0}, size_time_vertex_level[3] = {1, nCells, nVertLevels};
@@ -339,8 +347,6 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	cellsOnCell.resize(nCells * maxEdges);
 	const MPI_Offset start_cell_maxedges[2] = {0,0}, size_cell_maxedges[2] = {nCells, maxEdges};
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_cellsOnCell, start_cell_maxedges, size_cell_maxedges, &cellsOnCell[0]) );
-
-	
 
 	PNC_SAFE_CALL( ncmpi_close(ncid));
 

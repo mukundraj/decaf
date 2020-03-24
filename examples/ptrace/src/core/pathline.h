@@ -33,6 +33,7 @@ public:
 	pathline(mpas_io &mpas1_in, double dtSim_in, double dtParticle_in);
 
 	void update_velocity_vectors(mpas_io &mpas1, int framenum);
+	void set_velocity_vectors(mpas_io &mpas1); // for computing streamlines
 
 	void compute_epoch(block *mpas1, int framenum);
 
