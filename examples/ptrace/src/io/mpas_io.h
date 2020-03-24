@@ -27,12 +27,15 @@ public:
     std::vector<double> velocityX, velocityY, velocityZ;
     std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
     std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
-	std::vector<double> zTop_;
     std::vector<double> zTopVertex, zTopVertexNorm;
     std::map<int, int> vertexIndex, cellIndex;
     std::vector<int> nEdgesOnCell, maxLevelCell;
     std::vector<int> boundaryVertex;
     std::vector<int> cellsOnCell;
+
+	// Field data for streamlines
+	std::vector<double> uVertexVelocity, vVertexVelocity, wVertexVelocity;
+	std::vector<double> zTop_, zMid_, vertVelocityTop_;
 
     // Global values
     size_t nVertices_global;

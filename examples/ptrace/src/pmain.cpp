@@ -362,28 +362,73 @@ int main(int argc, char* argv[])
 	diy::RoundRobinAssigner assigner(world.size(), nblocks);
 
 
-    // read graph.info and build links & read partition info
-   
-     master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-    {   
-        std::string fname_graph = "graph.info", fname_graphpart = "graph.info.part." + std::to_string(world.size());
-        set<int> links;
-        b->create_links(fname_graph, fname_graphpart, links);
+	// add master to block 
+	std::vector<int> gids;                     // global ids of local blocks
+    assigner.local_gids(world.rank(), gids);   // get the gids of local blocks
+
+	for (unsigned i = 0; i < gids.size(); ++i) // for the local blocks in this processor
+    {	block* b = new block();
+		int gid = gids[i];
+		b->gid = gid;
+
+		diy::Link*    link = new diy::Link;  // link is this block's neighborhood
+
 
 		// read mpas data
 		std::string fname_data = "output.nc";
 		b->loadMeshFromNetCDF_CANGA(world, fname_data, 0);
 
+		
+		// read and add link
+		std::string fname_graph = "graph.info", fname_graphpart = "graph.info.part." + std::to_string(world.size());
+        set<int> links;
+        b->create_links(fname_graph, fname_graphpart, links);
+		for (int lgid: links){
+			// dprint("rank %d links to %ld", world.rank(), i);
+			diy::BlockID  neighbor;
+			neighbor.gid  = lgid;                     // gid of the neighbor block
+            neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+			link->add_neighbor(neighbor);
+		}
+		// init particles
 		std::string fname_particles = "particles.nc";
+		b->init_seeds_particles(world, fname_particles, 0);
 
-		// read seeds and filter locations
-		b->loadMeshFromNetCDF_CANGA(world, fname_particles, 0);
+		master.add(gid, b, link);
+	}
 
-    });
+	// prediction advection using iexchange
+	double dtSim = 7200, dtParticle = 300;
+	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+		dprint("inside");
 
+		pathline pl(*b, dtSim, dtParticle);
+
+		// update_velocity_vectors: both timesteps point to same vectors
+
+		// prepare prediction particles
+
+		// prediction advection using iexchange
+		// master.iexchange([&](Block *b, const diy::Master::ProxyWithLink &icp) -> bool {
+		// 	ncalls++;
+		// 	bool val = trace_block_iexchange(b,
+		// 									 icp,
+		// 									 decomposer,
+		// 									 assigner,
+		// 									 max_steps,
+		// 									 seed_rate,
+		// 									 share_face,
+		// 									 synth);
+		// 	return val;
+		// });
+
+
+	});
+
+	// rebalance
 	
     
-    // advect
+    // final advect using iexchange
 
 
     // write out segments

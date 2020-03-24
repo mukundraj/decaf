@@ -245,9 +245,9 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 // creates the cellsOnCell from file (as opposed to from the incoming data)
 void block::create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links){
 
-	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph.c_str());
-	cellsOnCell.clear();
-	cellsOnCell.resize(maxEdges*indexToCellID.size());
+	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph, ' ');
+	// cellsOnCell.clear();
+	// cellsOnCell.resize(maxEdges*indexToCellID.size());
 
 	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphpart.c_str());
 
@@ -267,7 +267,7 @@ void block::create_links(const std::string &fname_graph, const std::string &fnam
 			for (int j=0; j<cell_nbrs[i+1].size(); j++){
 				
 				int nbr_cgid = cell_nbrs[i+1][j];
-				cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// cellsOnCell[idx*maxEdges+j] = nbr_cgid;
 				// check if neighbor in different partition
 				if (partn_ids[nbr_cgid-1][0] != gid){
 					links.insert(partn_ids[nbr_cgid-1][0]);
@@ -507,31 +507,29 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "yParticle", &varid_yParticle));
 	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "zParticle", &varid_zParticle));
 	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "zLevelParticle", &varid_zLevelParticle));
-	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "glCellIdx", &varid_glCellIdx));
+	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "currentCell", &varid_glCellIdx));
 
 	xParticle.resize(nTime * nParticles);
 	yParticle.resize(nTime * nParticles);
 	zParticle.resize(nTime * nParticles);
 	zLevelParticle.resize(nTime * nParticles);
-	glCellIdx.resize(nParticles);
+	glCellIdx.resize(nTime * nParticles);
 	currentBlock.resize(nTime * nParticles);
 	const MPI_Offset start_t_p[2] = {0, 0}, size_t_p[2] = {nTime, nParticles};
 
-	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_xParticle, start_t_p, size_t_p, &xParticle[0]));
-	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_yParticle, start_t_p, size_t_p, &yParticle[0]));
-	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_zParticle, start_t_p, size_t_p, &zParticle[0]));
-	PNC_SAFE_CALL(ncmpi_get_vara_double(ncid, varid_zLevelParticle, start_t_p, size_t_p, &zLevelParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_xParticle, start_t_p, size_t_p, &xParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_yParticle, start_t_p, size_t_p, &yParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_zParticle, start_t_p, size_t_p, &zParticle[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_zLevelParticle, start_t_p, size_t_p, &zLevelParticle[0]));
 
-	int dimids_glCellIdx[] = {dimid_particles};
-	MPI_Offset start_glCellIdx[1] = {0}, count_glCellIdx[1] = {nParticles};
-	PNC_SAFE_CALL(ncmpi_get_vara_int(ncid, varid_glCellIdx, start_glCellIdx, count_glCellIdx, &glCellIdx[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_int_all(ncid, varid_glCellIdx, start_t_p, size_t_p, &glCellIdx[0]));
 
 
 	// int ncid_p;
 
 	// NC_SAFE_CALL(nc_open("particles.nc", NC_CLOBBER, &ncid_p));
 	PNC_SAFE_CALL(ncmpi_inq_varid(ncid, "currentBlock", &varid_currentBlock));
-	PNC_SAFE_CALL(ncmpi_get_vara_int(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
+	PNC_SAFE_CALL(ncmpi_get_vara_int_all(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
 	PNC_SAFE_CALL(ncmpi_close(ncid));	
 
 

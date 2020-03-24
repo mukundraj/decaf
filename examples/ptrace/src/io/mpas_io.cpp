@@ -212,7 +212,10 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	    varid_latCell, varid_lonCell, varid_xCell, varid_yCell, varid_zCell,
 	    varid_verticesOnEdge, varid_cellsOnVertex,
 	    varid_indexToVertexID, varid_indexToCellID,
-	    varid_velocityX, varid_velocityY, varid_velocityZ;
+	    varid_velocityX, varid_velocityY, varid_velocityZ, 
+		varid_uVertexVelocity, varid_vVertexVelocity, varid_wVertexVelocity, 
+		varid_cellsOnCell;
+		
 	int varid_zTop;
 
 	PNC_SAFE_CALL( ncmpi_open(world, filename.c_str(), NC_NOWRITE, MPI_INFO_NULL, &ncid) );
@@ -245,11 +248,15 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "velocityY", &varid_velocityY) );
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "velocityZ", &varid_velocityZ) );
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "zTop", &varid_zTop));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "uVertexVelocity", &varid_uVertexVelocity));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "vVertexVelocity", &varid_vVertexVelocity));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "wVertexVelocity", &varid_wVertexVelocity));
+	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "cellsOnCell", &varid_cellsOnCell));
 
 	const MPI_Offset start_cells[1] = {0}, size_cells[1] = {nCells};
 
 	indexToCellID.resize(nCells);
-	PNC_SAFE_CALL( ncmpi_get_vara_int(ncid, varid_indexToCellID, start_cells, size_cells, &indexToCellID[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_indexToCellID, start_cells, size_cells, &indexToCellID[0]) );
 	for (int i=0; i<nCells; i++) {
 		cellIndex[indexToCellID[i]] = i;
 		// fprintf(stderr, "%d, %d\n", i, indexToCellID[i]);
@@ -258,11 +265,11 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	std::vector<double> coord_cells;
 	coord_cells.resize(nCells);
 	xyzCell.resize(nCells*3);
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_xCell, start_cells, size_cells, &coord_cells[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_xCell, start_cells, size_cells, &coord_cells[0]) );
 	for (int i=0; i<nCells; i++) xyzCell[i*3] = coord_cells[i];
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_yCell, start_cells, size_cells, &coord_cells[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_yCell, start_cells, size_cells, &coord_cells[0]) );
 	for (int i=0; i<nCells; i++) xyzCell[i*3+1] = coord_cells[i];
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_zCell, start_cells, size_cells, &coord_cells[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zCell, start_cells, size_cells, &coord_cells[0]) );
 	for (int i=0; i<nCells; i++) xyzCell[i*3+2] = coord_cells[i];
 
 	const MPI_Offset start_vertices[1] = {0}, size_vertices[1] = {nVertices};
@@ -273,12 +280,12 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	zVertex.resize(nVertices);
 	indexToVertexID.resize(nVertices);
 
-	PNC_SAFE_CALL( ncmpi_get_vara_int(ncid, varid_indexToVertexID, start_vertices, size_vertices, &indexToVertexID[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_latVertex, start_vertices, size_vertices, &latVertex[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_lonVertex, start_vertices, size_vertices, &lonVertex[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_xVertex, start_vertices, size_vertices, &xVertex[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_yVertex, start_vertices, size_vertices, &yVertex[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_zVertex, start_vertices, size_vertices, &zVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_indexToVertexID, start_vertices, size_vertices, &indexToVertexID[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_latVertex, start_vertices, size_vertices, &latVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_lonVertex, start_vertices, size_vertices, &lonVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_xVertex, start_vertices, size_vertices, &xVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_yVertex, start_vertices, size_vertices, &yVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zVertex, start_vertices, size_vertices, &zVertex[0]) );
 
 	for (int i=0; i<nVertices; i++) {
 		vertexIndex[indexToVertexID[i]] = i;
@@ -288,7 +295,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	const MPI_Offset start_edges2[2] = {0, 0}, size_edges2[2] = {nEdges, 2};
 	verticesOnEdge.resize(nEdges*2);
 
-	PNC_SAFE_CALL( ncmpi_get_vara_int(ncid, varid_verticesOnEdge, start_edges2, size_edges2, &verticesOnEdge[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_verticesOnEdge, start_edges2, size_edges2, &verticesOnEdge[0]) );
 
 	// for (int i=0; i<nEdges; i++)
 	//   fprintf(stderr, "%d, %d\n", verticesOnEdge[i*2], verticesOnEdge[i*2+1]);
@@ -296,7 +303,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	const MPI_Offset start_vertex_cell[2] = {0, 0}, size_vertex_cell[2] = {nVertices, 3};
 	cellsOnVertex.resize(nVertices*3);
 
-	PNC_SAFE_CALL( ncmpi_get_vara_int(ncid, varid_cellsOnVertex, start_vertex_cell, size_vertex_cell, &cellsOnVertex[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_cellsOnVertex, start_vertex_cell, size_vertex_cell, &cellsOnVertex[0]) );
 
 	// getting velocity at one time at cell centers
 	const MPI_Offset start_time_cell_level[3] = {time_id, 0, 0}, size_time_cell_level[3] = {1, nCells, nVertLevels};
@@ -306,53 +313,34 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 
 
 
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_velocityX, start_time_cell_level, size_time_cell_level, &velocityX[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_velocityY, start_time_cell_level, size_time_cell_level, &velocityY[0]) );
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_velocityZ, start_time_cell_level, size_time_cell_level, &velocityZ[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_velocityX, start_time_cell_level, size_time_cell_level, &velocityX[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_velocityY, start_time_cell_level, size_time_cell_level, &velocityY[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_velocityZ, start_time_cell_level, size_time_cell_level, &velocityZ[0]) );
 
 	zTop_.resize(nCells*nVertLevels);
 	zTopVertex.resize(nVertices*nVertLevels);
 	zTopVertexNorm.resize(nVertices*nVertLevels);
+	
 
-	PNC_SAFE_CALL( ncmpi_get_vara_double(ncid, varid_zTop, start_time_cell_level, size_time_cell_level, &zTop_[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zTop, start_time_cell_level, size_time_cell_level, &zTop_[0]) );
 
-	// derive velocity on cell verticies (on only one altitude level here)
-	velocityXv.resize(nVertices*nVertLevels);
-	velocityYv.resize(nVertices*nVertLevels);
-	velocityZv.resize(nVertices*nVertLevels);
+	// getting velocity at one time at vertex centers
+	const MPI_Offset start_time_vertex_level[3] = {time_id, 0, 0}, size_time_vertex_level[3] = {1, nCells, nVertLevels};
 
-	//  std::cout<<time+1<<" time here";
-	//  exit(0);
+	// derive velocity on verticies (on only one altitude level here)
+	uVertexVelocity.resize(nVertices*nVertLevels);
+	vVertexVelocity.resize(nVertices*nVertLevels);
+	wVertexVelocity.resize(nVertices*nVertLevels);
 
-	// for (int i=0; i<nVertices; i++) {
-	// 	//    if (cellsOnVertex[i*3] == 0 || cellsOnVertex[i*3+1] == 0 || cellsOnVertex[i*3+2] == 0) continue; // on boundary
-	// 	int c0 = cellIndex[cellsOnVertex[i*3]], c1 = cellIndex[cellsOnVertex[i*3+1]], c2 = cellIndex[cellsOnVertex[i*3+2]];
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_uVertexVelocity, start_time_vertex_level, size_time_vertex_level, &uVertexVelocity[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_vVertexVelocity, start_time_vertex_level, size_time_vertex_level, &vVertexVelocity[0]) );
+	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_wVertexVelocity, start_time_vertex_level, size_time_vertex_level, &wVertexVelocity[0]) );
 
-	// 	double X[3][3] = {
-	// 		{xyzCell[c0*3], xyzCell[c0*3+1], xyzCell[c0*3+2]},
-	// 		{xyzCell[c1*3], xyzCell[c1*3+1], xyzCell[c1*3+2]},
-	// 		{xyzCell[c2*3], xyzCell[c2*3+1], xyzCell[c2*3+2]},
-	// 	};
+	cellsOnCell.resize(nCells * maxEdges);
+	const MPI_Offset start_cell_maxedges[2] = {0,0}, size_cell_maxedges[2] = {nCells, maxEdges};
+	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_cellsOnCell, start_cell_maxedges, size_cell_maxedges, &cellsOnCell[0]) );
 
-	// 	double P[3] = {xVertex[i], yVertex[i], zVertex[i]};
-
-	// 	double lambda[3];
-	// 	barycentric_point2triangle(X[0], X[1], X[2], P, lambda);
-	// 	//[i * nVertLevels + curVertLevel];
-	// 	for (int curVertLevel=0;curVertLevel<nVertLevels; curVertLevel++){
-	// 		//        velocityXv[curVertLevel*nVertLevels+i] = lambda[0] * velocityX[c0*nVertLevels+curVertLevel] + lambda[1] * velocityX[c1*nVertLevels+curVertLevel] + lambda[2] * velocityX[c2*nVertLevels+curVertLevel];
-	// 		//        velocityYv[curVertLevel*nVertLevels+i] = lambda[0] * velocityY[c0*nVertLevels+curVertLevel] + lambda[1] * velocityY[c1*nVertLevels+curVertLevel] + lambda[2] * velocityY[c2*nVertLevels+curVertLevel];
-	// 		//        velocityZv[curVertLevel*nVertLevels+i] = lambda[0] * velocityZ[c0*nVertLevels+curVertLevel] + lambda[1] * velocityZ[c1*nVertLevels+curVertLevel] + lambda[2] * velocityZ[c2*nVertLevels+curVertLevel];
-
-	// 		velocityXv[i*nVertLevels+curVertLevel] = lambda[0] * velocityX[c0*nVertLevels+curVertLevel] + lambda[1] * velocityX[c1*nVertLevels+curVertLevel] + lambda[2] * velocityX[c2*nVertLevels+curVertLevel];
-	// 		velocityYv[i*nVertLevels+curVertLevel] = lambda[0] * velocityY[c0*nVertLevels+curVertLevel] + lambda[1] * velocityY[c1*nVertLevels+curVertLevel] + lambda[2] * velocityY[c2*nVertLevels+curVertLevel];
-	// 		velocityZv[i*nVertLevels+curVertLevel] = lambda[0] * velocityZ[c0*nVertLevels+curVertLevel] + lambda[1] * velocityZ[c1*nVertLevels+curVertLevel] + lambda[2] * velocityZ[c2*nVertLevels+curVertLevel];
-
-	// 		zTopVertex[nVertLevels*i + curVertLevel] = lambda[0] * zTop[c0*nVertLevels+curVertLevel] + lambda[1] * zTop[c1*nVertLevels+curVertLevel] + lambda[2] * zTop[c2*nVertLevels+curVertLevel];
-
-	// 	}
-
-	// }
+	
 
 	PNC_SAFE_CALL( ncmpi_close(ncid));
 
