@@ -23,6 +23,145 @@ pathline::pathline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 	dt = dtSim / nSteps;
 }
 
+void pathline::compute_streamlines(block *b){
+
+	Array2d kWeightK = {0, 0.5}, kWeightT = {0, 0.5};
+	Array2d kWeightKVert = kWeightK, kWeightTVert = kWeightT;
+
+	ArrayXXd kWeightX(3, 2);
+	kWeightX << 0, 1,
+		0, 1,
+		0, 1;
+	int subStepOrder = 2;
+	Array2d kWeightXVert = kWeightX.block<1, 2>(0, 0); // see https://eigen.tuxfamily.org/dox/group__TutorialBlockOperations.html
+	// Array2d kWeightXVert{0,1};
+
+	// local variables
+	Array3d particleVelocity, xSubStep, diffSubStep, diffParticlePosition;
+	double tSubStep, diffParticlePositionVert;
+	double zSubStep, zLevelParticle, diffSubStepVert;
+	int iCell = -1, nCellVertices, iLevel;
+	double particleVelocityVert;
+
+	size_t nCellsnVertLeves = b->nCells * b->nVertLevels;
+
+	// dprint("mpas1->particles.size() %ld, nCells %ld", mpas1->particles.size(), mpas1->nCells);
+
+	std::vector<EndPt> particles_finished;
+
+		for (int pid = 0; pid < b->particles.size(); pid++)
+		{
+			// create segment
+			Segment seg;
+			seg.pid = b->particles[pid].pid;
+
+			Array3d particlePosition = {
+				b->particles[pid][0],
+				b->particles[pid][1],
+				b->particles[pid][2]};
+
+			// read zLevelParticle
+			zLevelParticle = b->particles[pid].zLevelParticle; // particles_zLevel[0];
+			// iCell = -1;											   //mpas1->particles[pid].glCellIdx;
+
+			iCell = b->particles[pid].glCellIdx;
+
+			for (int timeStep = 0; timeStep < nSteps; timeStep++)
+			{
+
+					ArrayXXd kCoeff = ArrayXXd::Zero(3, subStepOrder + 1);
+					ArrayXXd kCoeffVert = ArrayXXd::Zero(1, subStepOrder + 1);
+					for (int subStep = 0; subStep < subStepOrder; subStep++)
+					{
+						xSubStep = particlePosition;
+						diffSubStep = kWeightK(subStep) * kCoeff.col(subStep);
+
+						if (kWeightK(subStep) != 0)
+						{
+							particle_horizontal_movement(*b, xSubStep, diffSubStep);
+						}
+
+						// vertical
+						zSubStep = zLevelParticle;
+						diffSubStepVert = kWeightKVert(subStep) * kCoeffVert(subStep);
+
+
+						if (kWeightKVert(subStep) != 0)
+						{
+							zSubStep = zSubStep + diffSubStepVert;
+						}
+
+						// get new time step (tm = (timestep-1)*dt)
+						tSubStep = (timeStep + kWeightT(subStep)) * dt;
+
+						get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
+						iLevel = get_vertical_id(b->maxLevelCell[iCell], zSubStep, &zMid_cur[iCell * b->nVertLevels]);
+
+						int timeInterpOrder = 2;
+						double timeCoeff[2];
+						timeCoeff[0] = tSubStep / dtSim;
+						timeCoeff[1] = 1.0 - timeCoeff[0];
+
+						velocity_time_interpolation(timeInterpOrder,
+											timeCoeff,
+											iCell,
+											iLevel,
+											nCellVertices,
+											zSubStep,
+											*b,
+											xSubStep,
+											particleVelocity,
+											particleVelocityVert);
+
+						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
+						kCoeff.col(subStep + 1) = dt * particleVelocity;
+						kCoeffVert(subStep + 1) = dt * particleVelocityVert;
+
+					} // subStep loop ends
+
+						// update particle positions
+						diffParticlePosition << 0, 0, 0;
+						diffParticlePositionVert = 0;
+
+						for (int subStep = 0; subStep < subStepOrder; subStep++)
+						{
+
+							//first complete particle integration
+							diffParticlePosition = diffParticlePosition + kWeightX.col(subStep) * kCoeff.col(subStep + 1);
+							diffParticlePositionVert = diffParticlePositionVert + kWeightXVert(subStep) * kCoeffVert(subStep + 1);
+						}
+
+
+
+						//now, make sure particle position is still on same spherical shell as before
+						particle_horizontal_movement(*b, particlePosition, diffParticlePosition);
+
+						//now can do any vertical movements independent of the horizontal movement
+						zLevelParticle = zLevelParticle + diffParticlePositionVert;
+
+						// dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
+
+
+
+						// update segment
+						Pt p;
+						p.coords[0] = particlePosition[0]; 
+						p.coords[1] = particlePosition[1]; 
+						p.coords[2] = particlePosition[2]; 
+						seg.pts.push_back(p);
+
+			} // timeStep loop ends
+
+			// push segment to block segment vector
+			dprint("segsize %ld", seg.pts.size());
+			b->segments.push_back(seg);
+
+		} // particle loop
+
+	dprint("finished epoch");
+
+}
+
 void pathline::compute_epoch(block *mpas1, int framenum)
 {
 
@@ -228,7 +367,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 void pathline::get_validated_cell_id(const block &mpas1, Array3d &xSubStep, int &iCell, int &nCellVertices)
 {
 		// dprint("iCell guess %d", iCell);
-		get_nearby_cell_index(mpas1.nCells, &mpas1.xCell[0], &mpas1.yCell[0], &mpas1.zCell[0], xSubStep(0), xSubStep(1), xSubStep(2), mpas1, iCell, &mpas1.cellsOnCell[0], &mpas1.nEdgesOnCell[0]);
+		get_nearby_cell_index_sl(mpas1.nCells, &mpas1.xCell[0], &mpas1.yCell[0], &mpas1.zCell[0], xSubStep(0), xSubStep(1), xSubStep(2), mpas1, iCell, &mpas1.cellsOnCell[0], &mpas1.nEdgesOnCell[0]);
 
 	// if (iCell==-1){
 	/* Get cell id */

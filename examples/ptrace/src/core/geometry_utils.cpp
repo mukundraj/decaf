@@ -66,6 +66,71 @@ int get_vertical_id(int nLevels, double zLoc, double *zMid){
 }
 
 // return global cell id with fortran starting index
+void get_nearby_cell_index_sl(int nCells,
+                           const double *xc,
+                           const double *yc,
+                           const double *zc,
+                           const double xp,
+                           const double yp,
+                           const double zp,
+                           const block &mpas1,
+                           int &lastCell,
+                           const int *cellsOnCell,
+                           const int *nEdgesOnCell)
+{
+
+  double pointRadius, xPoint[3];
+  std::map<int, Eigen::Array3d> xCell;
+  int aPoint;
+  int cellID;
+
+ 
+  
+    int cellGuess = lastCell;
+    cellID = -1;
+
+    while (cellID != cellGuess)
+    {
+
+      // we have a known cell
+      cellID = cellGuess;
+
+      // normalize locations to same spherical shell (unit) for direct comparison
+
+      // for point itself
+      pointRadius = sqrt(xp * xp + yp * yp + zp * zp);
+      xPoint[0] = xp / pointRadius;
+      xPoint[1] = yp / pointRadius;
+      xPoint[2] = zp / pointRadius;
+
+      int localCellID = cellID;
+      xCell[cellGuess] <<  xc[localCellID]/pointRadius, yc[localCellID]/pointRadius, zc[localCellID]/pointRadius;
+      
+      // for point neighbors
+      int aPoint_local = -7;
+
+      for (int iPoint = 0; iPoint < nEdgesOnCell[localCellID]; iPoint++)
+      {
+
+        aPoint = cellsOnCell[localCellID * mpas1.maxEdges + iPoint]; // global cell id of neighbor
+
+        // aPoint_ = aPoint;
+        if (aPoint > nCells || aPoint == 0)
+          continue; // todo: confirm logic
+
+        aPoint_local = aPoint - 1; // local cell id of neighbor
+        pointRadius = mpas1.cradius;
+        xCell[aPoint] <<  xc[aPoint_local]/pointRadius, yc[aPoint_local]/pointRadius, zc[aPoint_local]/pointRadius;
+       
+      }
+      
+    }
+
+      lastCell = cellID;
+}
+
+
+// return global cell id with fortran starting index
 void get_nearby_cell_index(int nCells,
                            const double *xc,
                            const double *yc,

@@ -29,6 +29,20 @@ inline double get_arc_length(double ax, double ay, double az,
 
 int get_vertical_id(int nLevels, double zLoc, double *zMid);
 
+void get_nearby_cell_index_sl(int nCells,
+                           const double *xc, 
+                           const double *yc, 
+                           const double *zc,
+                           const double xp, 
+                           const double yp, 
+                           const double zp,
+                           const block &mpas1, 
+                           int &lastCell, 
+                           const int *cellsOnCell,
+                           const int *nEdgesOnCell
+                           );
+
+
 void get_nearby_cell_index(int nCells,
                            const double *xc, 
                            const double *yc, 

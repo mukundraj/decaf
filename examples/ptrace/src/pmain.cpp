@@ -317,7 +317,6 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				
 			}
 
-		
 	
 		} // looping through all in_data items
 
@@ -339,6 +338,19 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 using namespace std;
 
+
+bool trace_particles(block *b,
+                     const diy::Master::ProxyWithLink &cp,
+                     const diy::Assigner &assigner, 
+					 const int max_steps, 
+					 pathline &pl){
+
+				pl.compute_streamlines(b);
+
+				return true;
+
+}
+
 int main(int argc, char* argv[])
 {
      diy::mpi::environment     env(argc, argv); // equivalent of MPI_Init(argc, argv)/MPI_Finalize()
@@ -348,6 +360,7 @@ int main(int argc, char* argv[])
 	int nblocks = world.size();
 	int threads = 1;
 	int mem_blocks = -1;
+	int max_steps = 5;
 
     
 	diy::Master master(world,
@@ -398,29 +411,28 @@ int main(int argc, char* argv[])
 	}
 
 	// prediction advection using iexchange
-	double dtSim = 7200, dtParticle = 300;
+	// double dtSim = 7200, dtParticle = 300;
+	double dtSim = 2100, dtParticle = 300;
 	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
-		dprint("inside");
 
 		pathline pl(*b, dtSim, dtParticle);
 
 		// update_velocity_vectors: both timesteps point to same vectors
+		pl.set_velocity_vectors(*b);
 
-		// prepare prediction particles
 
 		// prediction advection using iexchange
-		// master.iexchange([&](Block *b, const diy::Master::ProxyWithLink &icp) -> bool {
-		// 	ncalls++;
-		// 	bool val = trace_block_iexchange(b,
-		// 									 icp,
-		// 									 decomposer,
-		// 									 assigner,
-		// 									 max_steps,
-		// 									 seed_rate,
-		// 									 share_face,
-		// 									 synth);
-		// 	return val;
-		// });
+		master.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
+			
+			bool val = trace_particles(b,
+										icp,
+										assigner,
+										max_steps,
+										pl);
+
+			dprint("segs %ld", b->segments.size());
+			return val;
+		});
 
 
 	});
@@ -432,6 +444,9 @@ int main(int argc, char* argv[])
 
 
     // write out segments
+	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+		b->parallel_write_segments(world, 0);
+	});
 
     dprint("done");
 }
