@@ -348,7 +348,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// getting velocity at one time at vertex centers
 	const MPI_Offset start_time_vertex_level[3] = {time_id, 0, 0}, size_time_vertex_level[3] = {1, nCells, nVertLevels};
 
-	// derive velocity on verticies (on only one altitude level here)
+	// derive velocity on verticies (on only one time level here?)
 	uVertexVelocity.resize(nVertices*nVertLevels);
 	vVertexVelocity.resize(nVertices*nVertLevels);
 	wVertexVelocity.resize(nVertices*nVertLevels);

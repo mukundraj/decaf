@@ -91,7 +91,7 @@ void get_nearby_cell_index_sl(int nCells,
 
     while (cellID != cellGuess)
     {
-
+      
       // we have a known cell
       cellID = cellGuess;
 
@@ -111,18 +111,48 @@ void get_nearby_cell_index_sl(int nCells,
 
       for (int iPoint = 0; iPoint < nEdgesOnCell[localCellID]; iPoint++)
       {
-
+        
         aPoint = cellsOnCell[localCellID * mpas1.maxEdges + iPoint]; // global cell id of neighbor
-
+        aPoint = aPoint - 1;
         // aPoint_ = aPoint;
         if (aPoint > nCells || aPoint == 0)
           continue; // todo: confirm logic
 
-        aPoint_local = aPoint - 1; // local cell id of neighbor
+        // aPoint_local = aPoint - 1; // local cell id of neighbor
+        aPoint_local = aPoint; // local cell id of neighbor
         pointRadius = mpas1.cradius;
         xCell[aPoint] <<  xc[aPoint_local]/pointRadius, yc[aPoint_local]/pointRadius, zc[aPoint_local]/pointRadius;
        
       }
+
+        double dx = xPoint[0] - xCell[cellID](0);
+        double dy = xPoint[1] - xCell[cellID](1);
+        double dz = xPoint[2] - xCell[cellID](2);
+        double r2Min = dx*dx + dy*dy + dz*dz;
+        double r2;
+
+        // dprint("r2Min %.12e", r2Min);
+        
+        for (int iPoint=0; iPoint<nEdgesOnCell[localCellID]; ++iPoint){
+          aPoint = cellsOnCell[localCellID*mpas1.maxEdges +iPoint] -1 ;
+
+          // if (aPoint > nCells || aPoint == 0)
+          if (aPoint > nCells)
+            continue; // todo: confirm logic
+
+          // compute squared distances
+
+          dx = xPoint[0] - xCell[aPoint](0);
+          dy = xPoint[1] - xCell[aPoint](1);
+          dz = xPoint[2] - xCell[aPoint](2);
+          r2 = dx*dx + dy*dy + dz*dz;
+          // dprint("r2 %.12e", r2);
+          if ( r2 < r2Min){
+            // we have a new closest point
+            cellGuess = aPoint;
+            r2Min = r2;
+          }
+        }
       
     }
 
@@ -231,7 +261,7 @@ void get_nearby_cell_index(int nCells,
 
           if (aPoint > nCells || aPoint == 0)
             continue; // todo: confirm logic
-
+          aPoint -= 1;
           // compute squared distances
 
           dx = xPoint[0] - xCell[aPoint](0);

@@ -412,7 +412,7 @@ int main(int argc, char* argv[])
 
 	// prediction advection using iexchange
 	// double dtSim = 7200, dtParticle = 300;
-	double dtSim = 2100, dtParticle = 300;
+	double dtSim = 5000*7200, dtParticle = 300000;
 	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 
 		pathline pl(*b, dtSim, dtParticle);
@@ -430,10 +430,25 @@ int main(int argc, char* argv[])
 										max_steps,
 										pl);
 
-			dprint("segs %ld", b->segments.size());
+			
 			return val;
 		});
 
+		if (b->segments.size()==0){
+			Pt p;
+			p.coords[0] = 0; 
+			p.coords[1] = 0; 
+			p.coords[2] = 0; 
+
+			Segment seg;
+			seg.pid = -1;
+			seg.pts.push_back(p);
+			b->segments.push_back(seg); // just dealing with the quirk in pnetcdf writer if empty block happens to be the last block
+		}
+
+		dprint("rank %d, segs %ld", world.rank(), b->segments.size());
+			
+		
 
 	});
 

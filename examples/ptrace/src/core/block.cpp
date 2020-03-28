@@ -535,17 +535,20 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 
 
 	for (size_t i=0; i<xParticle.size(); i++){
-		if (world.rank() == currentBlock[i] && init<4){
+		if (world.rank() == currentBlock[i] && init<2000 ){//&& init == 37){
 			EndPt p;
 			p.pid = init;
 			p.sid = init;
 			p[0] = xParticle[i];
 			p[1] = yParticle[i];
 			p[2] = zParticle[i];
-			p.zLevelParticle = zLevelParticle[i];
-			p.glCellIdx = glCellIdx[i];
-			particles.push_back(p);
-		// dprint("Init cellid %d", p.glCellIdx);
+			if (pow(-6452390 - p[0], 2)+ pow(-447879 - p[1], 2) + pow(197714 - p[2],2)<pow(5524190.98744,2)){
+				p.zLevelParticle = zLevelParticle[i];
+				p.glCellIdx = glCellIdx[i];
+				particles.push_back(p);
+				dprint("Init %d cellid %d", init, p.glCellIdx);
+			}
+		
 		}
 		init++;	
 
@@ -738,7 +741,7 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 		seg_offsets[i] = seg_offsets[i - 1] + segsizes[i - 1];
 		totalseglen_global += segsizes[i];
 	}
-
+	dprint("totalseglen_global %d", totalseglen_global);
 	// dprint("nSegments_global %d", nSegments_global);
 
 	// if (rank==7)
@@ -813,9 +816,13 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 
 	// allocate starts and counts, allocate buffer, write
 	// dprint("rank %d segoffset[rank] %d", rank, seg_offsets[rank]);
-	MPI_Offset start_segsize[1] = {segcnt_offsets[rank]}, count_segsize[1] = {(long long int)segsizes_local.size()};
-	dprint("after def mode done");
-	ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
+	MPI_Offset start_segsize[1] = {static_cast<long long int>(segcnt_offsets[rank])}, count_segsize[1] = {static_cast<long long int>(segsizes_local.size())};
+
+	dprint("rank %d segsizes start %lld count %ld, nseg_glob %ld", comm.rank(), segcnt_offsets[rank], segsizes_local.size(), nSegments_global);
+	// if (segcnt_offsets[rank] == nSegments_global && segsizes_local.size() == 0)
+	// 	ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
+	// else 
+		ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
 	dprint("first int");

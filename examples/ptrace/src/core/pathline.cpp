@@ -141,19 +141,20 @@ void pathline::compute_streamlines(block *b){
 
 						// dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
 
-
+						// dprint("pp (%d %d) %f %f %f | %f", iCell, iLevel, particlePosition[0], particlePosition[1], particlePosition[2], zLevelParticle);
 
 						// update segment
 						Pt p;
 						p.coords[0] = particlePosition[0]; 
 						p.coords[1] = particlePosition[1]; 
-						p.coords[2] = particlePosition[2]; 
+						p.coords[2] = particlePosition[2];
+						// p.zLevels.push_back(zLevelParticle);
 						seg.pts.push_back(p);
 
 			} // timeStep loop ends
 
 			// push segment to block segment vector
-			dprint("segsize %ld", seg.pts.size());
+			// dprint("segsize %ld", seg.pts.size());
 			b->segments.push_back(seg);
 
 		} // particle loop
@@ -366,7 +367,6 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 
 void pathline::get_validated_cell_id(const block &mpas1, Array3d &xSubStep, int &iCell, int &nCellVertices)
 {
-		// dprint("iCell guess %d", iCell);
 		get_nearby_cell_index_sl(mpas1.nCells, &mpas1.xCell[0], &mpas1.yCell[0], &mpas1.zCell[0], xSubStep(0), xSubStep(1), xSubStep(2), mpas1, iCell, &mpas1.cellsOnCell[0], &mpas1.nEdgesOnCell[0]);
 
 	// if (iCell==-1){
@@ -429,18 +429,25 @@ void pathline::velocity_time_interpolation(const int timeInterpOrder,
 
 	// general interpolation for the velocity field
 
-	for (int aTimeLevel = 0; aTimeLevel < timeInterpOrder; aTimeLevel++)
-	{
+	// for (int aTimeLevel = 0; aTimeLevel < timeInterpOrder; aTimeLevel++)
+	// {
 
 		// get uVertexVelocity, vVertexVelocity, wVertexVelocity for current time: done implicitly by update_velocity_vectors()
 
 
+		// particle_vertical_treatment(nCellVertices, &mpas1.verticesOnCell[iCell * mpas1.maxEdges], uVertexVelocities[aTimeLevel], vVertexVelocities[aTimeLevel], wVertexVelocities[aTimeLevel], mpas1, uvCell, iLevel, zSubStep, &zMid_cur[iCell * mpas1.nVertLevels], &zTop_cur[iCell * mpas1.nVertLevels], &vertVelocityTop_cur[iCell * mpas1.nVertLevelsP1], verticalVelocityInterp);
+
+		// particleVelocityVert = particleVelocityVert + timeCoeff[aTimeLevel] * verticalVelocityInterp;
+
+		// particleVelocity = particleVelocity + timeCoeff[aTimeLevel] * particle_horizontal_interpolation(mpas1, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
+		int aTimeLevel = 0;
 		particle_vertical_treatment(nCellVertices, &mpas1.verticesOnCell[iCell * mpas1.maxEdges], uVertexVelocities[aTimeLevel], vVertexVelocities[aTimeLevel], wVertexVelocities[aTimeLevel], mpas1, uvCell, iLevel, zSubStep, &zMid_cur[iCell * mpas1.nVertLevels], &zTop_cur[iCell * mpas1.nVertLevels], &vertVelocityTop_cur[iCell * mpas1.nVertLevelsP1], verticalVelocityInterp);
 
-		particleVelocityVert = particleVelocityVert + timeCoeff[aTimeLevel] * verticalVelocityInterp;
+		particleVelocityVert = particleVelocityVert +  verticalVelocityInterp;
 
-		particleVelocity = particleVelocity + timeCoeff[aTimeLevel] * particle_horizontal_interpolation(mpas1, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
-	}
+		particleVelocity = particleVelocity + particle_horizontal_interpolation(mpas1, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
+
+	// }
 
 	// dprint("Exiting"); exit(0);
 }
