@@ -32,6 +32,7 @@ public:
     std::vector<int> nEdgesOnCell, maxLevelCell;
     std::vector<int> boundaryVertex;
     std::vector<int> cellsOnCell;
+	std::vector<int> currentBlock;
 
 	// Field data for streamlines
 	std::vector<double> uVertexVelocity, vVertexVelocity, wVertexVelocity;

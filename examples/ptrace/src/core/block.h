@@ -28,7 +28,11 @@ public:
 	std::vector<EndPt> particles;
 	int init=0, done=0;
 	vector<Segment> segments; // finished segments of particle traces
+	std::vector<EndPt> particles_store; // staging area for dequeing particles
 
+
+	/* To check if inside partition */
+	vector<int> in_partition;
 	
 	void create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links);
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
@@ -48,6 +52,10 @@ public:
 
 	void parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum);
 	void parallel_write_segments(diy::mpi::communicator &comm, int max_steps);
+
+	void init_partitions();
+
+	
 
 };
 

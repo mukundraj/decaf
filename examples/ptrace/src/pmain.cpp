@@ -339,15 +339,37 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 using namespace std;
 
 
+void deq_incoming_iexchange(block *b,
+                            const diy::Master::ProxyWithLink &cp)
+{
+    diy::Link *l = static_cast<diy::Link *>(cp.link());
+    for (size_t i = 0; i < l->size(); ++i)
+    {
+        int nbr_gid = l->target(i).gid;
+        while (cp.incoming(nbr_gid)){
+            EndPt incoming_endpt;
+            cp.dequeue(nbr_gid, incoming_endpt);
+            b->particles_store.push_back(incoming_endpt);
+        }
+       
+    }
+   
+}
+
+
 bool trace_particles(block *b,
                      const diy::Master::ProxyWithLink &cp,
                      const diy::Assigner &assigner, 
 					 const int max_steps, 
 					 pathline &pl){
+				bool val = true;
 
-				pl.compute_streamlines(b);
+				b->particles_store.clear();
+				deq_incoming_iexchange(b, cp);
 
-				return true;
+				val = pl.compute_streamlines(b, cp, assigner);
+
+				return val;
 
 }
 
@@ -390,6 +412,7 @@ int main(int argc, char* argv[])
 		// read mpas data
 		std::string fname_data = "output.nc";
 		b->loadMeshFromNetCDF_CANGA(world, fname_data, 0);
+		
 
 		
 		// read and add link
@@ -406,6 +429,9 @@ int main(int argc, char* argv[])
 		// init particles
 		std::string fname_particles = "particles.nc";
 		b->init_seeds_particles(world, fname_particles, 0);
+
+		b->init_partitions(); // must be called after loading mpas data, after setting b->gid, and after init_seeds_partitions
+		
 
 		master.add(gid, b, link);
 	}

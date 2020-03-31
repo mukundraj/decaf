@@ -9,6 +9,18 @@
 #include <utility>
 #include <pnetcdf.h>
 
+void block::init_partitions(){
+	in_partition.resize(nCells);
+
+	for (size_t i=0; i<gcIdxToGid.size(); i++){
+		if (currentBlock[i]==gid)
+			in_partition[i] = 1;
+	}
+	in_partition[0] = 1;
+	int size = std::count(in_partition.begin(), in_partition.end(), 1);
+	dprint("current block size %d", size);
+}
+
 std::vector<Halo> block::get_halo_info()
 {
 
@@ -489,7 +501,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	int varid_xParticle, varid_yParticle, varid_zParticle, varid_zLevelParticle, varid_glCellIdx;
 	std::vector<double> xParticle, yParticle, zParticle, zLevelParticle;
 	std::vector<int> glCellIdx;
-	std::vector<int> currentBlock;
+	
 	int varid_currentBlock;
 
 	MPI_Offset nParticles;
@@ -535,7 +547,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 
 
 	for (size_t i=0; i<xParticle.size(); i++){
-		if (world.rank() == currentBlock[i] && init<2000 ){//&& init == 37){
+		if (world.rank() == currentBlock[i] && (init==47475 || init==108510 )){//&& init == 37){
 			EndPt p;
 			p.pid = init;
 			p.sid = init;
@@ -546,7 +558,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 				p.zLevelParticle = zLevelParticle[i];
 				p.glCellIdx = glCellIdx[i];
 				particles.push_back(p);
-				dprint("Init %d cellid %d", init, p.glCellIdx);
+				// dprint("Init %d cellid %d", init, p.glCellIdx);
 			}
 		
 		}
@@ -825,10 +837,8 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 		ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
-	dprint("first int");
 	// ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
 	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
-	dprint("second int");
 	ret = ncmpi_put_vara_int_all(ncfile, varid_seedid, start_segsize, count_segsize, &segsid_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);

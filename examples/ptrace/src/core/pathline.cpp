@@ -8,6 +8,25 @@
 
 using namespace Eigen;
 
+bool pathline::in_global_domain(const Pt& p){
+
+	return true;
+}
+bool pathline::in_local_domain (const block *b, const Pt& p, int iCell, int round){
+
+	int nCellVertices;
+	Array3d xSubStep;
+	xSubStep(0) = p.coords[0];
+	xSubStep(1) = p.coords[1];
+	xSubStep(2) = p.coords[2];
+	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
+	// dprint("bgid %d iCell %d", b->gid, iCell);
+	if (b->in_partition[iCell] == round)
+		return true;
+	else
+		return false;
+}
+
 pathline::pathline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 {
 
@@ -23,7 +42,7 @@ pathline::pathline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 	dt = dtSim / nSteps;
 }
 
-void pathline::compute_streamlines(block *b){
+bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner){
 
 	Array2d kWeightK = {0, 0.5}, kWeightT = {0, 0.5};
 	Array2d kWeightKVert = kWeightK, kWeightTVert = kWeightT;
@@ -47,6 +66,7 @@ void pathline::compute_streamlines(block *b){
 
 	// dprint("mpas1->particles.size() %ld, nCells %ld", mpas1->particles.size(), mpas1->nCells);
 
+	
 	std::vector<EndPt> particles_finished;
 
 		for (int pid = 0; pid < b->particles.size(); pid++)
@@ -59,16 +79,18 @@ void pathline::compute_streamlines(block *b){
 				b->particles[pid][0],
 				b->particles[pid][1],
 				b->particles[pid][2]};
-
+			int cur_nsteps = b->particles[pid].nsteps;
 			// read zLevelParticle
 			zLevelParticle = b->particles[pid].zLevelParticle; // particles_zLevel[0];
 			// iCell = -1;											   //mpas1->particles[pid].glCellIdx;
 
 			iCell = b->particles[pid].glCellIdx;
 
+			bool finished = false;
+
 			for (int timeStep = 0; timeStep < nSteps; timeStep++)
 			{
-
+					
 					ArrayXXd kCoeff = ArrayXXd::Zero(3, subStepOrder + 1);
 					ArrayXXd kCoeffVert = ArrayXXd::Zero(1, subStepOrder + 1);
 					for (int subStep = 0; subStep < subStepOrder; subStep++)
@@ -151,15 +173,61 @@ void pathline::compute_streamlines(block *b){
 						// p.zLevels.push_back(zLevelParticle);
 						seg.pts.push_back(p);
 
+						cur_nsteps ++;
+
+						// check if particle inside global domain and handle
+						if (!in_global_domain(p) || cur_nsteps >= nSteps){
+							finished = true;
+							break;
+						}
+
+						// check if inside local domain and handle
+						int round =  1;
+						if (!in_local_domain(b , p, iCell, round)){
+
+							dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
+							break;
+						}
+
+
+
 			} // timeStep loop ends
+
+
+			// if unfinished, enqueue 
+			if (finished == false){
+				int dest_gid = b->gcIdxToGid[iCell];
+				int dest_proc = assigner.rank(dest_gid);
+				diy::BlockID dest_block = {dest_gid, dest_proc};
+				// dprint("sou %d des %d %d", b->gid, dest_gid, dest_proc);
+				EndPt pt;
+				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
+				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];
+				pt.zLevelParticle = zLevelParticle;
+				// mpas1->particles[pid].glCellIdx = iCell; 
+				pt.glCellIdx = iCell;
+				cp.enqueue(dest_block, pt);
+			}
 
 			// push segment to block segment vector
 			// dprint("segsize %ld", seg.pts.size());
 			b->segments.push_back(seg);
+			dprint("numsegs %ld", b->segments.size());
 
 		} // particle loop
 
-	dprint("finished epoch");
+	
+	dprint("finished a callback in gid %d", b->gid);
+	
+	if (b->particles_store.size() > 0 ){
+		b->particles = std::move(b->particles_store);
+		return false;
+	}
+	else {
+		return true;
+	}
+		
+	
 
 }
 

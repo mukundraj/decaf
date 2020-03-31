@@ -3,10 +3,12 @@
 
 #include <vector>
 #include <Eigen/Dense>
+#include <diy/master.hpp>
 
 
 class block;
 class mpas_io;
+struct Pt;
 
 class pathline
 {
@@ -35,7 +37,7 @@ public:
 	void update_velocity_vectors(mpas_io &mpas1, int framenum);
 
 	void set_velocity_vectors(mpas_io &mpas1); // for computing streamlines
-	void compute_streamlines(block *mpas1);
+	bool compute_streamlines(block *mpas1, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner);
 
 	void compute_epoch(block *mpas1, int framenum);
 
@@ -66,6 +68,9 @@ public:
 	void wachspress_coordinates(const mpas_io &mpas1, const int nVertices, const double vertCoords[][3], const Eigen::Array3d &pointInterp, double *areaB, double *wachspress);
 
 	double wachspress_interpolate(const double *lambda, const double phi[][3], const int idx, const int nCellVertices  );
+
+	bool in_global_domain(const Pt& p);
+	bool in_local_domain (const block *b, const Pt& p, int iCell, int round);
 
 };
 
