@@ -69,6 +69,7 @@ struct Segment
     int        pid;                          // particle ID
     vector<Pt> pts;                          // points along trace
     int        sid;                          // segment ID of this part of the trace
+    int        nsteps;                       // number of particle steps at start of segment
     // vector<double> zLevels;
     Segment();
     Segment(EndPt& p);                        // construct a segment from one point

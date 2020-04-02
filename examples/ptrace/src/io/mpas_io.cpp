@@ -346,7 +346,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 
 
 	// getting velocity at one time at vertex centers
-	const MPI_Offset start_time_vertex_level[3] = {time_id, 0, 0}, size_time_vertex_level[3] = {1, nCells, nVertLevels};
+	const MPI_Offset start_time_vertex_level[3] = {time_id, 0, 0}, size_time_vertex_level[3] = {1, nVertices, nVertLevels};
 
 	// derive velocity on verticies (on only one time level here?)
 	uVertexVelocity.resize(nVertices*nVertLevels);
@@ -367,6 +367,22 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_verticesOnCell, start_cell_maxedges, size_cell_maxedges, &verticesOnCell[0]) );
 
 	PNC_SAFE_CALL( ncmpi_close(ncid));
+
+
+
+	// int vert = 43382;
+	// dprint("vertOnCell %d %d %d %d %d %d", verticesOnCell[vert*6], verticesOnCell[vert*6+1], verticesOnCell[vert*6+2], verticesOnCell[vert*6+3], verticesOnCell[vert*6+4], verticesOnCell[vert*6+5]);
+
+	// for (size_t i=0; i<verticesOnCell.size(); i++){
+	// 	if (verticesOnCell[i]==429305 && world.rank()==0)
+	// 		dprint("cellID %ld %ld", i, i/6);
+	// }
+
+	// vertOnCell 434468 434488 429306 430222 430708 429126
+	// int vid = 434468-1; 
+	// dprint("uVertVel %f %f %f", uVertexVelocity[vid*nVertLevels], uVertexVelocity[vid*nVertLevels+1], uVertexVelocity[vid*nVertLevels+2]);
+	// int cell = 43382;
+	// dprint("cell coords %f %f %f", xCell[cell], yCell[cell], zCell[cell]);
 
 
 }

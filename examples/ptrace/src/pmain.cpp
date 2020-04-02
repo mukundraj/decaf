@@ -350,6 +350,7 @@ void deq_incoming_iexchange(block *b,
             EndPt incoming_endpt;
             cp.dequeue(nbr_gid, incoming_endpt);
             b->particles_store.push_back(incoming_endpt);
+			dprint("incoming in %d", cp.gid());
         }
        
     }
@@ -364,9 +365,9 @@ bool trace_particles(block *b,
 					 pathline &pl){
 				bool val = true;
 
-				b->particles_store.clear();
+				// b->particles_store.clear();
 				deq_incoming_iexchange(b, cp);
-
+				// dprint("calling trace_particles");
 				val = pl.compute_streamlines(b, cp, assigner);
 
 				return val;
@@ -438,7 +439,7 @@ int main(int argc, char* argv[])
 
 	// prediction advection using iexchange
 	// double dtSim = 7200, dtParticle = 300;
-	double dtSim = 5000*7200, dtParticle = 300000;
+	double dtSim = 5000*7200*10, dtParticle = 3000000;
 	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 
 		pathline pl(*b, dtSim, dtParticle);

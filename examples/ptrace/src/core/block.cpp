@@ -547,18 +547,25 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 
 
 	for (size_t i=0; i<xParticle.size(); i++){
-		if (world.rank() == currentBlock[i] && (init==47475 || init==108510 )){//&& init == 37){
+		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
+		if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419)){//&& init == 37){
+
+				
+
+		// if (world.rank() == currentBlock[i] && init<20000){//&& (init==43382)){//&& init == 37){
+			// dprint ("init found %d |  %d %d| %f %f, (%f %f %f %f)", init, world.rank(), currentBlock[i], pow(-6452390 - xParticle[i], 2)+ pow(-447879 - yParticle[i], 2) + pow(197714 - zParticle[i],2), pow(5524190.98744,2), xParticle[i], yParticle[i], zParticle[i], zLevelParticle[i]);
+
 			EndPt p;
 			p.pid = init;
 			p.sid = init;
 			p[0] = xParticle[i];
 			p[1] = yParticle[i];
 			p[2] = zParticle[i];
-			if (pow(-6452390 - p[0], 2)+ pow(-447879 - p[1], 2) + pow(197714 - p[2],2)<pow(5524190.98744,2)){
+			if (pow(-6452390 - xParticle[i], 2)+ pow(-447879 - yParticle[i], 2) + pow(197714 - zParticle[i],2)<pow(5524190.98744,2)){
 				p.zLevelParticle = zLevelParticle[i];
 				p.glCellIdx = glCellIdx[i];
 				particles.push_back(p);
-				// dprint("Init %d cellid %d", init, p.glCellIdx);
+				dprint("Init %d cellid %d", init, p.glCellIdx);
 			}
 		
 		}
@@ -682,7 +689,7 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 
 	std::vector<int> segsizes(nprocs); // later contain total length of all segments in each proc
 	std::vector<int> segsizes_local;   // sizes of local segments
-	// std::vector<int> segstep_local; // step values of local segments
+	std::vector<int> segstep_local; // step values of local segments
 	std::vector<int> segsid_local; // seeds of local segments
 	int totalseglen_local = 0;	 // later contain total length of all local segments
 
@@ -690,7 +697,7 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 	{
 		totalseglen_local += segments[i].pts.size();
 		segsizes_local.push_back(segments[i].pts.size());
-		// segstep_local.push_back(segments[i].step);
+		segstep_local.push_back(segments[i].nsteps);
 		// segsid_local.push_back(segments[i].sid);
 		segsid_local.push_back(segments[i].pid);
 	}
@@ -837,8 +844,8 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 		ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
-	// ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
-	// if (ret != NC_NOERR) handle_error(ret, __LINE__);
+	ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
+	if (ret != NC_NOERR) handle_error(ret, __LINE__);
 	ret = ncmpi_put_vara_int_all(ncfile, varid_seedid, start_segsize, count_segsize, &segsid_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);

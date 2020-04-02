@@ -5,14 +5,18 @@
 #include "geometry_utils.h"
 #include "block.h"
 #include "advect.h"
+#include <cmath>
 
 using namespace Eigen;
 
 bool pathline::in_global_domain(const Pt& p){
 
-	return true;
+	if (pow(-6352390-p.coords[0],2)+pow(-447879-p.coords[1],2)+(pow(197714-p.coords[2],2))>pow(5524190.98744,2))
+		return false;
+	else
+		return true;
 }
-bool pathline::in_local_domain (const block *b, const Pt& p, int iCell, int round){
+bool pathline::in_local_domain (const block *b, const Pt& p, int &iCell, int round){
 
 	int nCellVertices;
 	Array3d xSubStep;
@@ -20,7 +24,7 @@ bool pathline::in_local_domain (const block *b, const Pt& p, int iCell, int roun
 	xSubStep(1) = p.coords[1];
 	xSubStep(2) = p.coords[2];
 	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
-	// dprint("bgid %d iCell %d", b->gid, iCell);
+	dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
 	if (b->in_partition[iCell] == round)
 		return true;
 	else
@@ -74,12 +78,13 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 			// create segment
 			Segment seg;
 			seg.pid = b->particles[pid].pid;
+			seg.nsteps = b->particles[pid].nsteps;
 
 			Array3d particlePosition = {
 				b->particles[pid][0],
 				b->particles[pid][1],
 				b->particles[pid][2]};
-			int cur_nsteps = b->particles[pid].nsteps;
+			int &cur_nsteps = b->particles[pid].nsteps;
 			// read zLevelParticle
 			zLevelParticle = b->particles[pid].zLevelParticle; // particles_zLevel[0];
 			// iCell = -1;											   //mpas1->particles[pid].glCellIdx;
@@ -134,7 +139,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 											xSubStep,
 											particleVelocity,
 											particleVelocityVert);
-
+						// dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
 						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 						kCoeff.col(subStep + 1) = dt * particleVelocity;
 						kCoeffVert(subStep + 1) = dt * particleVelocityVert;
@@ -178,11 +183,12 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 						// check if particle inside global domain and handle
 						if (!in_global_domain(p) || cur_nsteps >= nSteps){
 							finished = true;
+							dprint("particle exited gid %d pid %d, cur_nsteps %d, in_global_domain(p) %d, nSteps %f", b->gid, b->particles[pid].pid, cur_nsteps, in_global_domain(p), nSteps);
 							break;
 						}
 
 						// check if inside local domain and handle
-						int round =  1;
+						int round = 1;
 						if (!in_local_domain(b , p, iCell, round)){
 
 							dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
@@ -199,10 +205,11 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 				int dest_gid = b->gcIdxToGid[iCell];
 				int dest_proc = assigner.rank(dest_gid);
 				diy::BlockID dest_block = {dest_gid, dest_proc};
-				// dprint("sou %d des %d %d", b->gid, dest_gid, dest_proc);
+				dprint("iCell %d, sou %d des %d %d, cur_nsteps %d", iCell, b->gid, dest_gid, dest_proc, cur_nsteps);
 				EndPt pt;
 				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
 				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];
+				pt.nsteps = b->particles[pid].nsteps;
 				pt.zLevelParticle = zLevelParticle;
 				// mpas1->particles[pid].glCellIdx = iCell; 
 				pt.glCellIdx = iCell;
@@ -217,13 +224,18 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 		} // particle loop
 
 	
-	dprint("finished a callback in gid %d", b->gid);
+	
 	
 	if (b->particles_store.size() > 0 ){
+		dprint("moving from store in %d", b->gid);
 		b->particles = std::move(b->particles_store);
+		// dprint("finishedt a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		return false;
 	}
 	else {
+		// b->particle_store.clear();
+		dprint("finishedf a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
+		b->particles.clear(); // clearing particles if no particles came in
 		return true;
 	}
 		
