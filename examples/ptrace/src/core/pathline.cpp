@@ -123,6 +123,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 
 						get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
 						iLevel = get_vertical_id(b->maxLevelCell[iCell], zSubStep, &zMid_cur[iCell * b->nVertLevels]);
+						dprint("iCell %d, iLevel %d, maxLevelCell %d", iCell, iLevel, b->maxLevelCell[iCell]);
 
 						int timeInterpOrder = 2;
 						double timeCoeff[2];
@@ -139,7 +140,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 											xSubStep,
 											particleVelocity,
 											particleVelocityVert);
-						// dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
+						dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
 						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 						kCoeff.col(subStep + 1) = dt * particleVelocity;
 						kCoeffVert(subStep + 1) = dt * particleVelocityVert;
@@ -492,9 +493,13 @@ void pathline::velocity_time_interpolation(const int timeInterpOrder,
 
 	for (int aVertex = 0; aVertex < nCellVertices; aVertex++)
 	{
-		vertCoords[aVertex][0] = mpas1.xVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
-		vertCoords[aVertex][1] = mpas1.yVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
-		vertCoords[aVertex][2] = mpas1.zVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
+		// vertCoords[aVertex][0] = mpas1.xVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
+		// vertCoords[aVertex][1] = mpas1.yVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
+		// vertCoords[aVertex][2] = mpas1.zVertex[mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]]];
+
+		vertCoords[aVertex][0] = mpas1.xVertex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]-1];
+		vertCoords[aVertex][1] = mpas1.yVertex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]-1];
+		vertCoords[aVertex][2] = mpas1.zVertex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges + aVertex]-1];
 
 		// set areaB[aVertex] here later
 		// dprint("iCell %d, vertexIndex[] %d", iCell, mpas1.vertexIndex[mpas1.verticesOnCell[(iCell)*mpas1.maxEdges+aVertex]]);
@@ -684,6 +689,8 @@ void pathline::particle_vertical_treatment(const int nCellVertices, const int *v
 	interp_nodal_vectors(mpas1, nCellVertices, verticesOnCell, iLevel, mpas1.nVertLevels, zLoc, zMid, uVertexVelocity, vVertexVelocity, wVertexVelocity, uvCell);
 
 	// dprint("uvCell %f %f %f, %f %f %f", uvCell[0][0], uvCell[0][1], uvCell[0][2], uvCell[1][0], uvCell[1][1], uvCell[1][2]);
+	
+	dprint("verticesOnCell %d %d %d %d %d %d| maxEdges %d| zLoc %f", verticesOnCell[0], verticesOnCell[1], verticesOnCell[2], verticesOnCell[3], verticesOnCell[4], verticesOnCell[5], mpas1.maxEdges, zLoc);
 }
 
 void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, const int *verticesOnCell, const int iLevel, int nVertLevels, const double phiInterp, const double *phiVals, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, double uvCell[][3])
@@ -697,8 +704,8 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 		{
 			for (int aVertex = 0; aVertex < nCellVertices; aVertex++)
 			{	
-				// theVertex = verticesOnCell[aVertex] - 1;
-				theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
+				theVertex = verticesOnCell[aVertex] - 1;
+				// theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
 				uvCell[aVertex][0] = uVertexVelocity[theVertex * nVertLevels + 0]; // 0 = maxloc(phiVals(1:nVertLevels),1)
 				uvCell[aVertex][1] = vVertexVelocity[theVertex * nVertLevels + 0]; // 0 = maxloc(phiVals(1:nVertLevels),1)
 				uvCell[aVertex][2] = wVertexVelocity[theVertex * nVertLevels + 0]; // 0 = maxloc(phiVals(1:nVertLevels),1)
@@ -708,11 +715,12 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 		{
 			for (int aVertex = 0; aVertex < nCellVertices; aVertex++)
 			{	
-				// theVertex = verticesOnCell[aVertex] - 1;
-				theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
+				theVertex = verticesOnCell[aVertex] - 1;
+				// theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
 				uvCell[aVertex][0] = uVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
 				uvCell[aVertex][1] = vVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
 				uvCell[aVertex][2] = wVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
+				
 			}
 		}
 	}
@@ -725,8 +733,9 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f", iLevel, iHigh, iLow, phiInterp);
 	get_bounding_indices(iHigh, iLow, phiInterp, phiVals, iLevel, nVertLevels);
 
-	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f, phiVals[iLo iHi] %f %f", iLevel, iHigh, iLow, phiInterp, phiVals[iLow], phiVals[iHigh]);
+	dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f, phiVals[iLo iHi] %f %f", iLevel, iHigh, iLow, phiInterp, phiVals[iLow], phiVals[iHigh]);
 	// dprint("uVertexVelocity[0,1,2] %f %f %f", uVertexVelocity[theVertex*nVertLevels], uVertexVelocity[theVertex*nVertLevels+1], uVertexVelocity[theVertex*nVertLevels+2]);
+
 
 	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f, phiVals[iLevel] %d", iLevel, iHigh, iLow, phiInterp, 0);
 
@@ -744,11 +753,13 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 	// interpolate to the vertical level
 	for (int aVertex = 0; aVertex < nCellVertices; ++aVertex)
 	{
-		// theVertex = verticesOnCell[aVertex] - 1;
-		theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
+		theVertex = verticesOnCell[aVertex] - 1;
+		// theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
 		uvCell[aVertex][0] = alpha * uVertexVelocity[theVertex * nVertLevels + iHigh] + (1 - alpha) * uVertexVelocity[theVertex * nVertLevels + iLow];
 		uvCell[aVertex][1] = alpha * vVertexVelocity[theVertex * nVertLevels + iHigh] + (1 - alpha) * vVertexVelocity[theVertex * nVertLevels + iLow];
 		uvCell[aVertex][2] = alpha * wVertexVelocity[theVertex * nVertLevels + iHigh] + (1 - alpha) * wVertexVelocity[theVertex * nVertLevels + iLow];
+
+		dprint("alpha %f iLow %d, iHigh %d, uVertexVelocity[%d]= %f", alpha, iLow, iHigh, theVertex, uVertexVelocity[theVertex * nVertLevels + iLow]);
 
 		// dprint("theVertex %d, iHigh %d, uVertexVelocity[theVertex*nVertLevels + iHigh] %f", theVertex, iHigh, uVertexVelocity[theVertex*nVertLevels + iHigh]);
 	}

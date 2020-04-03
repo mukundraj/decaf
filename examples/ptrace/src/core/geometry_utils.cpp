@@ -56,7 +56,8 @@ int get_vertical_id(int nLevels, double zLoc, double *zMid){
 
   if (zLoc < zMid[nLevels-1]){
     // case where location is smallest value
-    return -1;
+    return zLoc = nLevels-1;
+    // return -1;
   }
   else if (zLoc > zMid[0]){
     // case where location is largest value
