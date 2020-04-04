@@ -18,7 +18,7 @@ void block::init_partitions(){
 	}
 	in_partition[0] = 1;
 	int size = std::count(in_partition.begin(), in_partition.end(), 1);
-	dprint("current block size %d", size);
+	// dprint("current block size %d", size);
 }
 
 std::vector<Halo> block::get_halo_info()
@@ -548,7 +548,9 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
-		if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419)){//&& init == 37){
+		// if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419))
+		if (world.rank() == currentBlock[i] && init %50==0)//&& init == 176100)
+		{
 
 				
 
@@ -561,7 +563,8 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 			p[0] = xParticle[i];
 			p[1] = yParticle[i];
 			p[2] = zParticle[i];
-			if (pow(-6452390 - xParticle[i], 2)+ pow(-447879 - yParticle[i], 2) + pow(197714 - zParticle[i],2)<pow(5524190.98744,2)){
+			// if (pow(-6452390 - xParticle[i], 2)+ pow(-447879 - yParticle[i], 2) + pow(197714 - zParticle[i],2)<pow(5524190.98744,2))
+			{
 				p.zLevelParticle = zLevelParticle[i];
 				p.glCellIdx = glCellIdx[i];
 				particles.push_back(p);

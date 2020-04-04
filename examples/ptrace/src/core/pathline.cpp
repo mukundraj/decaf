@@ -9,9 +9,14 @@
 
 using namespace Eigen;
 
-bool pathline::in_global_domain(const Pt& p){
+bool pathline::in_global_domain(const Pt& p, double cx, double cy, double cz){
 
-	if (pow(-6352390-p.coords[0],2)+pow(-447879-p.coords[1],2)+(pow(197714-p.coords[2],2))>pow(5524190.98744,2))
+	// if (pow(-6352390-p.coords[0],2)+pow(-447879-p.coords[1],2)+(pow(197714-p.coords[2],2))>pow(5524190.98744,2))
+	// 	return false;
+	// else
+	// 	return true;
+
+	if (pow(cx-p.coords[0],2)+pow(cy-p.coords[1],2)+(cz-p.coords[2],2)>pow(65000,2))
 		return false;
 	else
 		return true;
@@ -24,7 +29,7 @@ bool pathline::in_local_domain (const block *b, const Pt& p, int &iCell, int rou
 	xSubStep(1) = p.coords[1];
 	xSubStep(2) = p.coords[2];
 	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
-	dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
+	// dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
 	if (b->in_partition[iCell] == round)
 		return true;
 	else
@@ -123,7 +128,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 
 						get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
 						iLevel = get_vertical_id(b->maxLevelCell[iCell], zSubStep, &zMid_cur[iCell * b->nVertLevels]);
-						dprint("iCell %d, iLevel %d, maxLevelCell %d", iCell, iLevel, b->maxLevelCell[iCell]);
+						// dprint("tStep %d, subStep %d, pid %d, iCell %d, iLevel %d, maxLevelCell %d, zSubStep %f, zMid[iLevel] %f, zMid[iLevel+1] %f", timeStep, subStep, b->particles[pid].pid, iCell, iLevel, b->maxLevelCell[iCell], zSubStep, zMid_cur[iCell * b->nVertLevels+iLevel], zMid_cur[iCell * b->nVertLevels+iLevel+1]);
 
 						int timeInterpOrder = 2;
 						double timeCoeff[2];
@@ -140,7 +145,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 											xSubStep,
 											particleVelocity,
 											particleVelocityVert);
-						dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
+						// dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
 						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 						kCoeff.col(subStep + 1) = dt * particleVelocity;
 						kCoeffVert(subStep + 1) = dt * particleVelocityVert;
@@ -182,14 +187,17 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 						cur_nsteps ++;
 
 						// check if particle inside global domain and handle
-						if (!in_global_domain(p) || cur_nsteps >= nSteps){
+						if (!in_global_domain(p, b->xCell[iCell], b->yCell[iCell], b->zCell[iCell] ) || cur_nsteps >= nSteps)
+						// if (cur_nsteps >= nSteps || iCell == 31823)
+						{
 							finished = true;
-							dprint("particle exited gid %d pid %d, cur_nsteps %d, in_global_domain(p) %d, nSteps %f", b->gid, b->particles[pid].pid, cur_nsteps, in_global_domain(p), nSteps);
+							dprint("particle exited gid %d pid %d, cur_nsteps %d, nSteps %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps);
 							break;
 						}
 
 						// check if inside local domain and handle
 						int round = 1;
+						// dprint("iCell %d", iCell);
 						if (!in_local_domain(b , p, iCell, round)){
 
 							dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
@@ -206,7 +214,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 				int dest_gid = b->gcIdxToGid[iCell];
 				int dest_proc = assigner.rank(dest_gid);
 				diy::BlockID dest_block = {dest_gid, dest_proc};
-				dprint("iCell %d, sou %d des %d %d, cur_nsteps %d", iCell, b->gid, dest_gid, dest_proc, cur_nsteps);
+				dprint("iCell %d, sou %d des %d %d, cur_nsteps %d, pid %d", iCell, b->gid, dest_gid, dest_proc, cur_nsteps, b->particles[pid].pid);
 				EndPt pt;
 				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
 				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];
@@ -220,7 +228,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 			// push segment to block segment vector
 			// dprint("segsize %ld", seg.pts.size());
 			b->segments.push_back(seg);
-			dprint("numsegs %ld", b->segments.size());
+			// dprint("numsegs %ld", b->segments.size());
 
 		} // particle loop
 
@@ -228,14 +236,14 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 	
 	
 	if (b->particles_store.size() > 0 ){
-		dprint("moving from store in %d", b->gid);
+		// dprint("moving from store in %d", b->gid);
 		b->particles = std::move(b->particles_store);
 		// dprint("finishedt a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		return false;
 	}
 	else {
 		// b->particle_store.clear();
-		dprint("finishedf a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
+		// dprint("finishedf a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		b->particles.clear(); // clearing particles if no particles came in
 		return true;
 	}
@@ -353,7 +361,7 @@ void pathline::compute_epoch(block *mpas1, int framenum)
 
 				// dprint("zMid_cur %ld, zTop_cur %ld", zMid_cur_size, zTop_cur_size);
 				iLevel = get_vertical_id(mpas1->maxLevelCell[iCell], zSubStep, &zMid_cur[iCell * mpas1->nVertLevels]);
-				// dprint("iLevel %d", iLevel);
+				dprint("iLevel %d", iLevel);
 
 				int timeInterpOrder = 2;
 				double timeCoeff[2];
@@ -690,7 +698,7 @@ void pathline::particle_vertical_treatment(const int nCellVertices, const int *v
 
 	// dprint("uvCell %f %f %f, %f %f %f", uvCell[0][0], uvCell[0][1], uvCell[0][2], uvCell[1][0], uvCell[1][1], uvCell[1][2]);
 	
-	dprint("verticesOnCell %d %d %d %d %d %d| maxEdges %d| zLoc %f", verticesOnCell[0], verticesOnCell[1], verticesOnCell[2], verticesOnCell[3], verticesOnCell[4], verticesOnCell[5], mpas1.maxEdges, zLoc);
+	// dprint("verticesOnCell %d %d %d %d %d %d| maxEdges %d| zLoc %f", verticesOnCell[0], verticesOnCell[1], verticesOnCell[2], verticesOnCell[3], verticesOnCell[4], verticesOnCell[5], mpas1.maxEdges, zLoc);
 }
 
 void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, const int *verticesOnCell, const int iLevel, int nVertLevels, const double phiInterp, const double *phiVals, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, double uvCell[][3])
@@ -733,7 +741,7 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f", iLevel, iHigh, iLow, phiInterp);
 	get_bounding_indices(iHigh, iLow, phiInterp, phiVals, iLevel, nVertLevels);
 
-	dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f, phiVals[iLo iHi] %f %f", iLevel, iHigh, iLow, phiInterp, phiVals[iLow], phiVals[iHigh]);
+	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f, phiVals[iLo iHi] %f %f", iLevel, iHigh, iLow, phiInterp, phiVals[iLow], phiVals[iHigh]);
 	// dprint("uVertexVelocity[0,1,2] %f %f %f", uVertexVelocity[theVertex*nVertLevels], uVertexVelocity[theVertex*nVertLevels+1], uVertexVelocity[theVertex*nVertLevels+2]);
 
 
@@ -759,7 +767,7 @@ void pathline::interp_nodal_vectors(mpas_io &mpas1, const int nCellVertices, con
 		uvCell[aVertex][1] = alpha * vVertexVelocity[theVertex * nVertLevels + iHigh] + (1 - alpha) * vVertexVelocity[theVertex * nVertLevels + iLow];
 		uvCell[aVertex][2] = alpha * wVertexVelocity[theVertex * nVertLevels + iHigh] + (1 - alpha) * wVertexVelocity[theVertex * nVertLevels + iLow];
 
-		dprint("alpha %f iLow %d, iHigh %d, uVertexVelocity[%d]= %f", alpha, iLow, iHigh, theVertex, uVertexVelocity[theVertex * nVertLevels + iLow]);
+		// dprint("alpha %f iLow %d, iHigh %d, uVertexVelocity[%d]= %f", alpha, iLow, iHigh, theVertex, uVertexVelocity[theVertex * nVertLevels + iLow]);
 
 		// dprint("theVertex %d, iHigh %d, uVertexVelocity[theVertex*nVertLevels + iHigh] %f", theVertex, iHigh, uVertexVelocity[theVertex*nVertLevels + iHigh]);
 	}

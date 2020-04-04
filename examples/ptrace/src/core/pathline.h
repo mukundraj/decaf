@@ -69,7 +69,7 @@ public:
 
 	double wachspress_interpolate(const double *lambda, const double phi[][3], const int idx, const int nCellVertices  );
 
-	bool in_global_domain(const Pt& p);
+	bool in_global_domain(const Pt& p, double cx, double cy, double cz);
 	bool in_local_domain (const block *b, const Pt& p, int &iCell, int round);
 
 };
