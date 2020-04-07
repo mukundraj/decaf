@@ -50,10 +50,13 @@ struct EndPt
 {
     int  pid;                                // particle ID
     Pt   pt;                                 // end pointof the trace
+    Pt   pt_hold;                            // holding place for p{xyz} during balancing
     int  sid;                                // segment ID of this part of the trace
     int  nsteps;                             // number of steps this particle went so far
     double zLevelParticle;
     int glCellIdx;                          // global cell index for current point
+    int predonly;                          // if predonly>0 : pt should be filtered out after load balancing; predonly=1 => load pt; predonly=2 => cellid pt
+    int source_gid;                         // only set for the cellid pts for reconstructing links
 
     const double& operator [](int i) const;
     double& operator [](int i);

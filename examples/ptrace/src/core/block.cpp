@@ -13,10 +13,12 @@ void block::init_partitions(){
 	in_partition.resize(nCells);
 
 	for (size_t i=0; i<gcIdxToGid.size(); i++){
-		if (currentBlock[i]==gid)
+		if (currentBlock[i]==gid){
 			in_partition[i] = 1;
+			in_partition_set.insert(i);
+		}
 	}
-	in_partition[0] = 1;
+	// in_partition[0] = 1;
 	int size = std::count(in_partition.begin(), in_partition.end(), 1);
 	// dprint("current block size %d", size);
 }
@@ -290,10 +292,38 @@ void block::create_links(const std::string &fname_graph, const std::string &fnam
 		}
 	}
 
+}
 
+void block::create_links_from_gcIdxToGid(const std::string &fname_graph, std::set<int> &links){
+
+	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph, ' ');
+
+	int idx = 0;
+	for (size_t i = 0; i < gcIdxToGid.size(); i++)
+	{
+		
+		if (gid == gcIdxToGid[i])
+		{
+			
+			
+			// iterate over neighbors
+			for (int j=0; j<cell_nbrs[i+1].size(); j++){
+				
+				int nbr_cgid = cell_nbrs[i+1][j];
+				// cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// check if neighbor in different partition
+				if (gcIdxToGid[nbr_cgid-1] != gid){
+					links.insert(gcIdxToGid[nbr_cgid-1]);
+				}
+			}
+			idx++;
+
+		}
+	}
 	
 
 }
+
 
 void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world)
 {
@@ -549,7 +579,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
 		// if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419))
-		if (world.rank() == currentBlock[i] && init %50==0)//&& init == 176100)
+		if (world.rank() == currentBlock[i] && init %10000==0)//&& init == 176100)
 		{
 
 				
@@ -568,7 +598,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 				p.zLevelParticle = zLevelParticle[i];
 				p.glCellIdx = glCellIdx[i];
 				particles.push_back(p);
-				dprint("Init %d cellid %d", init, p.glCellIdx);
+				// dprint("Init %d cellid %d", init, p.glCellIdx);
 			}
 		
 		}

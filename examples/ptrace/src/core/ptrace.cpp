@@ -10,6 +10,7 @@ EndPt::EndPt()
 	pid      = 0;
 	sid      = 0;
 	nsteps   = 0;
+    predonly = 0;
 }
 
 // following constructor defined out of line because references Segment, which needed

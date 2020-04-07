@@ -8,7 +8,7 @@
 #include <set>
 #include <diy/mpi.hpp>
 // #include <pnetcdf.h>
-
+#include <unordered_set>
 
 class block: public mpas_io{
 
@@ -29,12 +29,16 @@ public:
 	int init=0, done=0;
 	vector<Segment> segments; // finished segments of particle traces
 	std::vector<EndPt> particles_store; // staging area for dequeing particles
+	
 
 
 	/* To check if inside partition */
 	vector<int> in_partition;
+	unordered_set<int> in_partition_set; // same as in_partition in set format
 	
 	void create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links);
+	void create_links_from_gcIdxToGid(const std::string &fname_graph, std::set<int> &links);
+
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 
 	void init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum);

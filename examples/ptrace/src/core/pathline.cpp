@@ -51,7 +51,7 @@ pathline::pathline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 	dt = dtSim / nSteps;
 }
 
-bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner){
+bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold){
 
 	Array2d kWeightK = {0, 0.5}, kWeightT = {0, 0.5};
 	Array2d kWeightKVert = kWeightK, kWeightTVert = kWeightT;
@@ -74,7 +74,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 	size_t nCellsnVertLeves = b->nCells * b->nVertLevels;
 
 	// dprint("mpas1->particles.size() %ld, nCells %ld", mpas1->particles.size(), mpas1->nCells);
-
+	int iCell_prev;
 	
 	std::vector<EndPt> particles_finished;
 
@@ -128,6 +128,10 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 
 						get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
 						iLevel = get_vertical_id(b->maxLevelCell[iCell], zSubStep, &zMid_cur[iCell * b->nVertLevels]);
+				
+						if (subStep==0)
+							iCell_prev = iCell;
+
 						// dprint("tStep %d, subStep %d, pid %d, iCell %d, iLevel %d, maxLevelCell %d, zSubStep %f, zMid[iLevel] %f, zMid[iLevel+1] %f", timeStep, subStep, b->particles[pid].pid, iCell, iLevel, b->maxLevelCell[iCell], zSubStep, zMid_cur[iCell * b->nVertLevels+iLevel], zMid_cur[iCell * b->nVertLevels+iLevel+1]);
 
 						int timeInterpOrder = 2;
@@ -185,13 +189,27 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 						seg.pts.push_back(p);
 
 						cur_nsteps ++;
+						nsteps++;
 
+
+						// if predicting, add copy coordinates to EndPt and add to b->particles_hold
+						if (prediction == true)
+						{   
+						    EndPt way_pt;
+						    way_pt[0] = b->xCell[iCell];
+						    way_pt[1] = b->yCell[iCell];
+						    way_pt[2] = b->zCell[iCell];
+						    way_pt.predonly = 1;
+						    particles_hold.push_back(way_pt);
+						}
+
+						
 						// check if particle inside global domain and handle
 						if (!in_global_domain(p, b->xCell[iCell], b->yCell[iCell], b->zCell[iCell] ) || cur_nsteps >= nSteps)
 						// if (cur_nsteps >= nSteps || iCell == 31823)
 						{
 							finished = true;
-							dprint("particle exited gid %d pid %d, cur_nsteps %d, nSteps %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps);
+							// dprint("particle exited gid %d pid %d, cur_nsteps %d, nSteps %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps);
 							break;
 						}
 
@@ -214,7 +232,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 				int dest_gid = b->gcIdxToGid[iCell];
 				int dest_proc = assigner.rank(dest_gid);
 				diy::BlockID dest_block = {dest_gid, dest_proc};
-				dprint("iCell %d, sou %d des %d %d, cur_nsteps %d, pid %d", iCell, b->gid, dest_gid, dest_proc, cur_nsteps, b->particles[pid].pid);
+				dprint("sou %d des %d, iCell (%d %d), cur_nsteps %d, pid %d",  b->gid, dest_gid, iCell_prev, iCell, cur_nsteps, b->particles[pid].pid);
 				EndPt pt;
 				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
 				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];

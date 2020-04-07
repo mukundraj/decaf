@@ -4,6 +4,7 @@
 #include <vector>
 #include <Eigen/Dense>
 #include <diy/master.hpp>
+#include "ptrace.h"
 
 
 class block;
@@ -37,7 +38,7 @@ public:
 	void update_velocity_vectors(mpas_io &mpas1, int framenum);
 
 	void set_velocity_vectors(mpas_io &mpas1); // for computing streamlines
-	bool compute_streamlines(block *mpas1, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner);
+	bool compute_streamlines(block *mpas1, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold);
 
 	void compute_epoch(block *mpas1, int framenum);
 
