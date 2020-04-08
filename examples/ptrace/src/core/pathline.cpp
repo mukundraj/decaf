@@ -30,6 +30,8 @@ bool pathline::in_local_domain (const block *b, const Pt& p, int &iCell, int rou
 	xSubStep(2) = p.coords[2];
 	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
 	// dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
+	
+	// if (b->gcIdxToGid[iCell] == b->gid)
 	if (b->in_partition[iCell] == round)
 		return true;
 	else
@@ -218,7 +220,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 						// dprint("iCell %d", iCell);
 						if (!in_local_domain(b , p, iCell, round)){
 
-							dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
+							// dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
 							break;
 						}
 
@@ -232,7 +234,7 @@ bool pathline::compute_streamlines(block *b, const diy::Master::ProxyWithLink &c
 				int dest_gid = b->gcIdxToGid[iCell];
 				int dest_proc = assigner.rank(dest_gid);
 				diy::BlockID dest_block = {dest_gid, dest_proc};
-				dprint("sou %d des %d, iCell (%d %d), cur_nsteps %d, pid %d",  b->gid, dest_gid, iCell_prev, iCell, cur_nsteps, b->particles[pid].pid);
+				// dprint("sou %d des %d, iCell (%d %d), cur_nsteps %d, pid %d, b->gcIdxToGid[iCell] %d, b->in_partition[iCell] %d",  b->gid, dest_gid, iCell_prev, iCell, cur_nsteps, b->particles[pid].pid, b->gcIdxToGid[iCell], b->in_partition[iCell]);
 				EndPt pt;
 				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
 				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];

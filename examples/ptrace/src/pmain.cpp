@@ -87,7 +87,7 @@ int main(int argc, char* argv[])
 
     diy::FileStorage storage("./DIY.XXXXXX");
 	int nblocks = world.size();
-	int threads = 1;
+	int threads = 2;
 	int mem_blocks = -1;
 	int max_steps = 5;
 	int check = 0;                  // write out traces
@@ -193,7 +193,7 @@ int main(int argc, char* argv[])
 		for (unsigned i = 0; i < DIM; ++i)
 		{
 			domain.min[i] = -6371329. - 100; // 6371229.
-			domain.max[i] = 6371329. +100;
+			domain.max[i] = 6371329. + 100;
 		}
 
 		
@@ -248,14 +248,6 @@ int main(int argc, char* argv[])
 		double time1 = MPI_Wtime();
 		time_prep = time1 - time0;
 
-		// prediction advection that appends work locations to particles_hold
-
-		// master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
-
-		
-
-
-		// });
 
 		// prediction advection using iexchange
 		master.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
@@ -278,6 +270,11 @@ int main(int argc, char* argv[])
 			return val;
 		});
 
+		world.barrier();
+		double time2 = MPI_Wtime(); 
+		time_predrun = time2 - time1;
+
+
 		block* block_ptr;
 		// replace particle p{xyz} with cell{xyz}, move b->particles_hold to b->particles
 		master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
@@ -291,9 +288,9 @@ int main(int argc, char* argv[])
 				cell_cen.glCellIdx = i;
 				cell_cen.source_gid = b->gid;
 				particles_hold.push_back(cell_cen);
-				if (cell_cen.glCellIdx==196056 || cell_cen.glCellIdx==48616){
-					dprint("cell_cen.glCellIdx %d starts from gid %d", cell_cen.glCellIdx , b->gid);
-				}
+				// if (cell_cen.glCellIdx==196056 || cell_cen.glCellIdx==48616){
+				// 	dprint("cell_cen.glCellIdx %d starts from gid %d", cell_cen.glCellIdx , b->gid);
+				// }
 			}
 
 			// b->particles = std::move(b->particles_hold);
@@ -304,6 +301,11 @@ int main(int argc, char* argv[])
 		master_kdt.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 			b->particles = std::move(particles_hold);
 		});
+
+
+		world.barrier();
+		double time3 = MPI_Wtime();
+		time_prep += time3 - time3;
 		
 		// load based repartition
 		bool wrap = false;
@@ -314,6 +316,10 @@ int main(int argc, char* argv[])
 			particles_hold = std::move(b->particles);
 			gid = b->gid;
 		});
+
+		world.barrier();
+		double time4 = MPI_Wtime();
+		time_kdtree = time4 - time3;
 
 		dprint("Populating gcIdxToGid_global. nCells %d", nCells);
 		// preparing to compute links by computing gcIdxToGid_global	
@@ -403,9 +409,9 @@ int main(int argc, char* argv[])
 			for (size_t i=0; i<b->particles.size(); i++){
 				if (b->particles[i].predonly==2){
 					b->in_partition[b->particles[i].glCellIdx] = 1;
-					if (b->particles[i].glCellIdx==196056 || b->particles[i].glCellIdx==48616 ){
-						dprint("cell_cen.glCellIdx %d goes to gid %d", b->particles[i].glCellIdx , b->gid);
-					}
+					// if (b->particles[i].glCellIdx==196056 || b->particles[i].glCellIdx==48616 ){
+					// 	dprint("cell_cen.glCellIdx %d goes to gid %d", b->particles[i].glCellIdx , b->gid);
+					// }
 				}else if (b->particles[i].predonly==0){
 					b->particles[i].pt = b->particles[i].pt_hold;
 					particles_hold.push_back(b->particles[i]);
@@ -421,7 +427,11 @@ int main(int argc, char* argv[])
 		dprint("Starting second advection .............. ");
 
 
-			
+			world.barrier();
+        	double time6 = MPI_Wtime();	
+			time_filter = time6 - time4;
+
+                
 
 			// final advection using iexchange
 			master_final.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
@@ -446,13 +456,20 @@ int main(int argc, char* argv[])
 				return val;
 			});
 
+			world.barrier();
+			double time7 = MPI_Wtime();
+			time_final = time7 - time6;
+
 			dprint("done final advection");
 			
 
 
 	}else{
 
-		// prediction advection using iexchange
+		dprint("starting baseline advection..");
+		world.barrier();
+        double time6 = MPI_Wtime();
+		// baseline advection using iexchange
 		master.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
 			pathline pl(*b, dtSim, dtParticle);
 
@@ -467,9 +484,14 @@ int main(int argc, char* argv[])
 									   false,
 									   nsteps,
 									   particles_hold);
+			// dprint ("callback done in %d", world.rank());
 
 			return val;
 		});
+
+		world.barrier();
+        double time7 = MPI_Wtime();
+        time_final = time7 - time6;
 
 		// dprint("rank %d, segs %ld", world.rank(), b->segments.size());
 

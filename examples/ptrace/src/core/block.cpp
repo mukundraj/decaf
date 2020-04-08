@@ -13,7 +13,8 @@ void block::init_partitions(){
 	in_partition.resize(nCells);
 
 	for (size_t i=0; i<gcIdxToGid.size(); i++){
-		if (currentBlock[i]==gid){
+		// if (currentBlock[i]==gid){
+		if (gcIdxToGid[i]==gid){
 			in_partition[i] = 1;
 			in_partition_set.insert(i);
 		}
@@ -265,10 +266,13 @@ void block::create_links(const std::string &fname_graph, const std::string &fnam
 
 	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphpart.c_str());
 
-	for (size_t i = 0; i < partn_ids.size(); i++)
+	for (size_t i = 0; i < partn_ids.size(); i++){
 		gcIdxToGid.push_back(partn_ids[i][0]);
-
-
+		// if(gid==0 && i<100){
+		// 	dprint("i %ld gcIdxToGid[i] %d, len %ld", i, gcIdxToGid[i], gcIdxToGid.size());
+		// }
+	}
+	
 	int idx = 0;
 	for (size_t i = 0; i < partn_ids.size(); i++)
 	{
@@ -579,7 +583,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
 		// if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419))
-		if (world.rank() == currentBlock[i] && init %10000==0)//&& init == 176100)
+		if (world.rank() == currentBlock[i] && init %1000==0)//&& init == 176100)
 		{
 
 				
