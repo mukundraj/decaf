@@ -68,17 +68,47 @@ bool trace_particles(block *b,
 					 pathline &pl, 
 					 int prediction, 
 					 size_t &nsteps, 
-					 std::vector<EndPt>& particles_hold){
+					 std::vector<EndPt>& particles_hold, 
+					 int skip_rate){
 				bool val = true;
 
 				// b->particles_store.clear();
 				deq_incoming_iexchange(b, cp);
 				// dprint("calling trace_particles");
-				val = pl.compute_streamlines(b, cp, assigner, prediction, nsteps, particles_hold);
+				val = pl.compute_streamlines(b, cp, assigner, prediction, nsteps, particles_hold, skip_rate);
 
 				return val;
 
 }
+
+void print_block(block* b, const diy::Master::ProxyWithLink& cp, bool verbose, int worldsize)
+{
+  RCLink*  link      = static_cast<RCLink*>(cp.link());
+
+  fmt::print("bounds,{},: [,{},{},{},] - [,{},{},{},] ({} neighbors): {} points, world, {},\n",
+                  cp.gid(),
+                  link->bounds().min[0], link->bounds().min[1], link->bounds().min[2],
+                  link->bounds().max[0], link->bounds().max[1], link->bounds().max[2],
+                  link->size(), b->particles.size(), worldsize);
+
+//   for (int i = 0; i < link->size(); ++i)
+//   {
+//       fmt::print("  ({},{},({},{},{})):",
+//                       link->target(i).gid, link->target(i).proc,
+//                       link->direction(i)[0],
+//                       link->direction(i)[1],
+//                       link->direction(i)[2]);
+//       const Bounds& bounds = link->bounds(i);
+//       fmt::print(" [{},{},{}] - [{},{},{}]\n",
+//               bounds.min[0], bounds.min[1], bounds.min[2],
+//               bounds.max[0], bounds.max[1], bounds.max[2]);
+//   }
+
+//   if (verbose)
+//     for (size_t i = 0; i < b->points.size(); ++i)
+//       fmt::print("  {} {} {}\n", b->points[i][0], b->points[i][1], b->points[i][2]);
+}
+
 
 int main(int argc, char* argv[])
 {
@@ -99,9 +129,17 @@ int main(int argc, char* argv[])
 	double dtSim = 5000*7200*10;
 	double dtParticle = 300000;
 	size_t nCells;
+	int pred_percent = 10;
+	int seed_rate = 100;
+	int skip_rate = 10;
 
 	bool prediction = true;
 	double time_prep=0, time_predrun=0, time_kdtree=0, time_readdata=0, time_filter=0, time_final=0, time_predrun_loc=0, time_final_loc, time_trace = 0;
+	std::atomic<bool> done{false};
+	std::vector<size_t> steps_per_interval;
+	std::vector<size_t> particles_in_core;
+	size_t np_core = 0;
+	std::vector<int> gcIdxToGid;
 
 
 	using namespace opts;
@@ -113,7 +151,8 @@ int main(int argc, char* argv[])
 		>> Option('c', "check", check, "Write out traces for checking");
 
 	 if (ops >> Present('h', "help", "show help") ||
-        !(ops >> PosOption(particle_file) >> PosOption(gp_file) >> PosOption(prediction) >> PosOption(dtSim) >> PosOption(dtParticle)))
+        !(ops >> PosOption(particle_file) >> PosOption(gp_file) >> PosOption(prediction) >> PosOption(dtSim) >> PosOption(dtParticle)
+				>> PosOption(seed_rate) >> PosOption(pred_percent)>> PosOption(skip_rate)))
     {
         if (world.rank() == 0)
         {
@@ -170,9 +209,11 @@ int main(int argc, char* argv[])
             neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
 			link->add_neighbor(neighbor);
 		}
+
+	
 		// init particles
 		std::string fname_particles = particle_file; //"particles.nc";
-		b->init_seeds_particles(world, fname_particles, 0);
+		b->init_seeds_particles(world, fname_particles, 0, seed_rate);
 
 		b->init_partitions(); // must be called after loading mpas data, after setting b->gid, and after init_seeds_partitions
 		nCells = b->gcIdxToGid.size();
@@ -184,7 +225,29 @@ int main(int argc, char* argv[])
 	// double dtSim = 7200, dtParticle = 300;
 	// double dtSim = 5000*7200*10, dtParticle = 300000;
 
-	
+	// for gantt chart
+	std::thread steps_ctr([&] {
+		while (!done)
+		{
+
+			std::this_thread::sleep_for(std::chrono::milliseconds(1000));
+			{
+				std::lock_guard<std::mutex> guard(mutex);
+
+				// particles_in_core.push_back(np_core);
+				if (steps_per_interval.size() > 0)
+				{
+					steps_per_interval.push_back(nsteps - nsteps_lagged);
+					nsteps_lagged = nsteps;
+				}
+				else{
+					steps_per_interval.push_back(nsteps);
+					nsteps_lagged = nsteps;
+				}
+			}
+		}
+	});
+
 	std::vector<EndPt> particles_hold; // staging area for holding to-be-predicted particles
 
 	if (prediction)
@@ -226,13 +289,17 @@ int main(int argc, char* argv[])
 		// select prediction particles; store tag along particles in b->particles_hold
 		master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 			std::random_device rd;
-			std::mt19937 g(4);
+			std::mt19937 g(6);
 			std::shuffle(b->particles.begin(), b->particles.end(), g);
 
-			size_t pred_size = b->particles.size()/1;
+			// size_t pred_size = b->particles.size()/10;
+			size_t pred_size = static_cast<size_t>(floor((float(pred_percent)/100)*b->particles.size()));
+
+			// dprint("pred_size %d", pred_size);
 
 			// b->particles_hold.insert(std::end(b->particles_hold), std::begin(b->particles) + pred_size, std::end(b->particles));
-			particles_hold.insert(std::end(particles_hold), std::begin(b->particles) + 0, std::end(b->particles));
+			// particles_hold.insert(std::end(particles_hold), std::begin(b->particles) + 0, std::end(b->particles));
+			particles_hold.insert(std::end(particles_hold), std::begin(b->particles) + pred_size, std::end(b->particles));
 			b->particles.resize(pred_size);
 
 			for (EndPt& ep: particles_hold){ // updating p{xyz} to cell{xyz} for load based sorting
@@ -265,7 +332,8 @@ int main(int argc, char* argv[])
 									   pl,
 									   true,
 									   nsteps,
-									   particles_hold);
+									   particles_hold, 
+									   skip_rate);
 
 			return val;
 		});
@@ -312,6 +380,9 @@ int main(int argc, char* argv[])
 		size_t samples = 512;
 		diy::kdtree(master_kdt, assigner, DIM, domain, &block::particles, samples, wrap);
 
+		bool verbose = false;
+		master_kdt.foreach([&](block* b, const diy::Master::ProxyWithLink& cp) { print_block(b,cp,verbose, world.size()); });
+
 		master_kdt.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 			particles_hold = std::move(b->particles);
 			gid = b->gid;
@@ -339,7 +410,7 @@ int main(int argc, char* argv[])
 
 
 		// post prediction run with new master with reconstructed links
-		nsteps = 0;
+		// nsteps = 0;
 
 		diy::Master master_final(world,
 							   threads,
@@ -373,6 +444,22 @@ int main(int argc, char* argv[])
 				link->add_neighbor(neighbor);
 				// dprint("gid %d nbr %d", gid, lgid);
 			}
+
+			// if (b->gid == 1138)
+			// {
+			// 	diy::BlockID neighbor;
+			// 	neighbor.gid = 1150;						 // gid of the neighbor block
+			// 	neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+			// 	link->add_neighbor(neighbor);
+			// }
+			// if (b->gid == 1599)
+			// {
+			// 	diy::BlockID neighbor;
+			// 	neighbor.gid = 1623;						 // gid of the neighbor block
+			// 	neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+			// 	link->add_neighbor(neighbor);
+			// }
+
 			master_final.add(gid, b, link);
 		} 
 
@@ -448,7 +535,8 @@ int main(int argc, char* argv[])
 											pl, 
 											false,
 											nsteps,
-											particles_hold);
+											particles_hold,
+											skip_rate);
 
 				
 
@@ -461,8 +549,10 @@ int main(int argc, char* argv[])
 			time_final = time7 - time6;
 
 			dprint("done final advection");
-			
 
+			master_final.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {	
+				gcIdxToGid = std::move(b->gcIdxToGid);
+			});
 
 	}else{
 
@@ -483,7 +573,8 @@ int main(int argc, char* argv[])
 									   pl,
 									   false,
 									   nsteps,
-									   particles_hold);
+									   particles_hold,
+									   skip_rate);
 			// dprint ("callback done in %d", world.rank());
 
 			return val;
@@ -492,6 +583,7 @@ int main(int argc, char* argv[])
 		world.barrier();
         double time7 = MPI_Wtime();
         time_final = time7 - time6;
+
 
 		// dprint("rank %d, segs %ld", world.rank(), b->segments.size());
 
@@ -511,7 +603,8 @@ int main(int argc, char* argv[])
 		});
 	}
     
-
+	done = true;
+	steps_ctr.join();
 
 	if (check==1 && prediction == 0)
     {
@@ -528,6 +621,9 @@ int main(int argc, char* argv[])
 	size_t maxsteps_global=0;
     diy::mpi::reduce(world, nsteps, maxsteps_global, 0, diy::mpi::maximum<size_t>());
 
+	std::vector<std::vector<size_t>> all_steps_per_interval;
+    diy::mpi::gather (world, steps_per_interval, all_steps_per_interval, 0 );
+
 	float avg = float(nsteps_global) / world.size();
     float balance = (float(maxsteps_global))/ float(avg);
 
@@ -535,8 +631,36 @@ int main(int argc, char* argv[])
 	size_t minsteps_global, ntransfers_global;
 	if (world.rank() == 0)
 	{
-		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, bal , %f, time_tot , %f, time_overhead, %f, worldsize, %d, minsteps, %ld,\n", prediction, nsteps_global, maxsteps_global, balance, double(0.0), double(0.0), world.size(), double(0.0));
-		dprint("times: predrun, %f, kdtree , %f, readdata, %f, filter ,%f, final , %f, prediction, %d, max, %ld, min, %ld, nsteps, %ld, wsize, %d, time_pred, %f, tot_transfers, %ld, prdrun_local(max avg), %f, %f, fin_local (max avg), %f, %f, max_steps, %d, time_trace_max, %f, time_trace_avg, %f, ", time_predrun, time_kdtree, time_readdata, time_filter, time_final, prediction, maxsteps_global, minsteps_global, nsteps_global, world.size(), time_prep, ntransfers_global, time_predrun_loc_max, time_predrun_loc_avg, time_fin_loc_max, time_fin_loc_avg, max_steps, time_trace_max, time_trace_avg);
+
+		// fprintf(stderr, "gcIdxToGid:,");
+		// for (size_t i=0; i<gcIdxToGid.size(); i++){
+		// 	fprintf(stderr, "%ld, ", gcIdxToGid[i]);
+		// }
+		// fprintf(stderr, "\n");
+		string fname = "new_partition.txt";
+		ofstream myfile (fname.c_str(), ios::out|ios::trunc);
+		if (myfile.is_open())
+		{
+		for(size_t i = 0; i < gcIdxToGid.size(); i ++){
+			myfile << gcIdxToGid[i] <<"\n";
+		}
+		myfile.close();
+		}
+
+		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, bal , %f, time_tot , %f, time_overhead, %f, worldsize, %d, minsteps, %ld, dtSim %f, dtParticle, %f,\n", prediction, nsteps_global, maxsteps_global, balance, double(0.0), double(0.0), world.size(), 0, dtSim, dtParticle);
+		dprint("times: predrun, %f, kdtree , %f, readdata, %f, filter ,%f, final , %f, prediction, %d, max, %ld, min, %ld, nsteps, %ld, wsize, %d, time_pred, %f, tot_transfers, %ld, prdrun_local(max avg), %f, %f, fin_local (max avg), %f, %f, max_steps, %d, time_trace_max, %f, time_trace_avg, %f, pred_percent, %d, seed_rate, %d, skip_rate, %d,", time_predrun, time_kdtree, time_readdata, time_filter, time_final, prediction, maxsteps_global, minsteps_global, nsteps_global, world.size(), time_prep, ntransfers_global, time_predrun_loc_max, time_predrun_loc_avg, time_fin_loc_max, time_fin_loc_avg, max_steps, time_trace_max, time_trace_avg, pred_percent, seed_rate, skip_rate);
+
+
+		for (size_t i=0; i<all_steps_per_interval.size(); i++)
+		{   fprintf(stderr, "ganttrank, %d, p, %d, ws, %d, ", i, prediction, world.size());
+			for (size_t j=0; j<all_steps_per_interval[i].size(); j++){
+				fprintf(stderr, "%ld, ", all_steps_per_interval[i][j]);
+			}
+			fprintf(stderr, "\n");
+		}  
+		
+		
+
 		dprint("done");
 	}
 

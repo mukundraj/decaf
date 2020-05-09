@@ -526,7 +526,7 @@ void block::generate_new_particle_file()
 	} // if (gid==0)
 }
 
-void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum){
+void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum, int seed_rate){
 
 	// initialize seeds directly from particles.nc
 
@@ -578,12 +578,12 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	PNC_SAFE_CALL(ncmpi_get_vara_int_all(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
 	PNC_SAFE_CALL(ncmpi_close(ncid));	
 
-
+	// dprint("seed_rate %d", seed_rate);
 
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
 		// if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419))
-		if (world.rank() == currentBlock[i] && init %1000==0)//&& init == 176100)
+		if (world.rank() == currentBlock[i] && init % seed_rate==0)//&& init == 176100)
 		{
 
 				
@@ -680,7 +680,7 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 		// if (init==130){
 		// if (init==410 || init == 130){
         
-		if (rank == currentBlock[i]){
+		if (rank == currentBlock[i] && init){
 			EndPt p;
 			p.pid = init;
 			p.sid = init;
@@ -887,7 +887,7 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
 
-	dprint("here rank %d segsize %ld", rank, segments.size());
+	dprint("here rank %d seg_offsets[rank] %ld, segsize %ld", rank,seg_offsets[rank], segments.size());
 	long long int local_offset = 0;
 	for (size_t i = 0; i < segments.size(); i++)
 	{
@@ -904,12 +904,14 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 			buffer_y[j] = segments[i].pts[j].coords[1];
 			buffer_z[j] = segments[i].pts[j].coords[2];
 		}
-		// if (rank==5)
-		// 	dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
+		if (rank==15)
+			dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
 
 		ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
-		if (ret != NC_NOERR)
+		if (ret != NC_NOERR){
+			dprint("unclear rank %d", rank);
 			handle_error(ret, __LINE__);
+		}
 
 		ret = ncmpi_put_vara_double_all(ncfile, varid_py, start, count, &buffer_y[0]);
 		if (ret != NC_NOERR)
@@ -921,6 +923,8 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 
 		local_offset += segments[i].pts.size();
 	}
+	
+
 
 	size_t extra_runs = max_nSegments - segments.size();
 	for (size_t i = 0; i < extra_runs; i++)

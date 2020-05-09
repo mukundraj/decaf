@@ -10,10 +10,18 @@ dtSim=$((5000*7200*10))
 # stepsize
 dtParticle=300000
 
+# seed rate
+seed_rate=100
 
+# sample percentage
+pred_percent=10
+
+# skip rate / skip percentage
+skip_rate=10
 
 # without prediction
 prediction=0
+
 
 # num_procs=4
 # particle_file="particles/particles4.nc"
@@ -29,12 +37,12 @@ prediction=0
 # args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
 # mpiexec -n $num_procs $exe $args
 
-# num_procs=16
-# particle_file="particles/particles16.nc"
-# gp_file="graphinfo/graph.info.part.16"
-# opts="--blocks 16 --check 0"
-# args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
-# mpiexec -n $num_procs $exe $args
+num_procs=16
+particle_file="particles/particles16.nc"
+gp_file="graphinfo/graph.info.part.16"
+opts="--blocks 16 --check 1"
+args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent $skip_rate"
+mpiexec -n $num_procs $exe $args
 
 # num_procs=128
 # particle_file="particles/particle128.nc"
@@ -67,7 +75,7 @@ prediction=1
 num_procs=16
 particle_file="particles/particles16.nc"
 gp_file="graphinfo/graph.info.part.16"
-opts="--blocks 16 --check 0"
-args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
+opts="--blocks 16 --check 1"
+args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent $skip_rate"
 mpiexec -n $num_procs $exe $args
 
