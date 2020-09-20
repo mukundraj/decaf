@@ -563,6 +563,8 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	currentBlock.resize(nTime * nParticles);
 	const MPI_Offset start_t_p[2] = {0, 0}, size_t_p[2] = {nTime, nParticles};
 
+	// dprint("nTime %ld nParticles %ld", nTime, nParticles);
+
 	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_xParticle, start_t_p, size_t_p, &xParticle[0]));
 	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_yParticle, start_t_p, size_t_p, &yParticle[0]));
 	PNC_SAFE_CALL(ncmpi_get_vara_double_all(ncid, varid_zParticle, start_t_p, size_t_p, &zParticle[0]));
@@ -578,7 +580,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	PNC_SAFE_CALL(ncmpi_get_vara_int_all(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
 	PNC_SAFE_CALL(ncmpi_close(ncid));	
 
-	// dprint("seed_rate %d", seed_rate);
+	dprint("seed_rate %d", seed_rate);
 
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
@@ -663,8 +665,8 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 	NC_SAFE_CALL(nc_close(ncid));
 
 	int ncid_p;
-
-	NC_SAFE_CALL(nc_open("particles.nc", NC_CLOBBER, &ncid_p));
+	dprint("error %s", fname_particles.c_str());
+	NC_SAFE_CALL(nc_open(fname_particles.c_str(), NC_CLOBBER, &ncid_p));
 	NC_SAFE_CALL(nc_inq_varid(ncid, "currentBlock", &varid_currentBlock));
 	NC_SAFE_CALL(nc_get_vara_int(ncid, varid_currentBlock, start_t_p, size_t_p, &currentBlock[0]));
 	NC_SAFE_CALL(nc_close(ncid_p));

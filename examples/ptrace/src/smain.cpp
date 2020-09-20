@@ -31,6 +31,8 @@ using namespace std;
 #include <diy/algorithms.hpp>
 #include <cmath>
 
+#include "utils/opts.h"
+
 typedef diy::RegularContinuousLink RCLink;
 typedef diy::ContinuousBounds Bounds;
 static const unsigned DIM = 3;
@@ -172,7 +174,7 @@ void all_gather_data(diy::mpi::communicator &world, std::vector<int> &data_bar_i
 bool first_done = false;
 
 // consumer
-void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, block &mpas1, pathline &pl)
+void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, block &mpas1, pathline &pl, std::string &fname_decoupled_particles)
 {
 
 	// mpaso mpas_c;
@@ -180,7 +182,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	diy::mpi::communicator world(decaf->con_comm_handle());
 
 	// recomputed particle file ("particles2.nc") includes global cell indices for seeds
-	std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part." + std::to_string(world.size());
+	// std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part." + std::to_string(world.size());
+	std::string fname_particles = fname_decoupled_particles, fname_graphinfo = "graph.info.part." + std::to_string(world.size());
 
 	// // build kd tree
 	// mpas1.create_cells_kdtree();
@@ -269,7 +272,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				//if (world.rank() == 0)
 				//{
 					// mpas1.generate_new_particle_file();
-					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
+					// mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
 				//}
 			}
 			else if (framenum > 1 && data_id == 13)
@@ -278,7 +281,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 				// kdtre based balance
 
-				// dprint("IN HERE %d", framenum);
+				dprint("IN HERE %d, mpas1.velXv %d, %f", framenum, mpas1.velocityXv[0].size(), mpas1.velocityXv[0][0]); //mpas1.velocityXv[0][0]
 
 				bool wrap = false;
 				size_t samples = 512;
@@ -344,25 +347,57 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	// });
 }
 
-int main()
+int main(int argc, char* argv[])
 {
-	dprint("starting main..");
+	dprint("starting main....");
 
-	block mpas1;
-	double dtSim = 7200, dtParticle = 300;
-	pathline pl(mpas1, dtSim, dtParticle);
+	MPI_Init(NULL, NULL);
 
 	// define the workflow
 	Workflow workflow;
 	//make_wflow(workflow);
 	Workflow::make_wflow_from_json(workflow, "mpas_decaf_flowvis.json");
-
-	MPI_Init(NULL, NULL);
-
 	// create decaf
 	Decaf *decaf = new Decaf(MPI_COMM_WORLD, workflow);
-
 	diy::mpi::communicator world(decaf->con_comm_handle());
+
+
+	diy::FileStorage storage("./DIY.XXXXXX");
+	int nblocks = world.size();
+	int threads = 2;
+	int mem_blocks = -1;
+	int max_steps = 5;
+	int check = 0;                  // write out traces
+	int gid;
+
+	int ndims = 3;           // domain dimensions
+	string particle_file;    // input file name
+	string gp_file;    		// input file name
+	double dtSim = 5000*7200*10;
+	double dtParticle = 300000;
+	size_t nCells;
+	int pred_percent = 10;
+	int seed_rate = 100;
+	int skip_rate = 10;
+
+	bool prediction = true;
+	double time_prep=0, time_predrun=0, time_kdtree=0, time_readdata=0, time_filter=0, time_final=0, time_predrun_loc=0, time_final_loc, time_trace = 0;
+	std::atomic<bool> done{false};
+	std::vector<size_t> steps_per_interval;
+	std::vector<size_t> particles_in_core;
+	size_t np_core = 0;
+	std::vector<int> gcIdxToGid;
+
+
+
+	block mpas1;
+	// double dtSim = 7200, dtParticle = 300;
+	pathline pl(mpas1, dtSim, dtParticle);
+
+	
+	
+
+	
 	// dprint("diy world size: %d", world.size() );
 
 	// if (world.rank() == 1)
@@ -375,10 +410,35 @@ int main()
 	//    }
 	//    world.barrier();
 
-	diy::FileStorage storage("./DIY.XXXXXX");
-	int nblocks = world.size();
-	int threads = 1;
-	int mem_blocks = -1;
+	// diy::FileStorage storage("./DIY.XXXXXX");
+	// int nblocks = world.size();
+	// int threads = 1;
+	// int mem_blocks = -1;
+
+
+
+	using namespace opts;
+
+	 // command-line ags
+    Options ops(argc, argv);
+
+	ops >> Option('b', "blocks", nblocks, "Total number of blocks to use")
+		>> Option('c', "check", check, "Write out traces for checking");
+
+	 if (ops >> Present('h', "help", "show help") ||
+        !(ops >> PosOption(particle_file) >> PosOption(gp_file) >> PosOption(prediction) >> PosOption(dtSim) >> PosOption(dtParticle)
+				>> PosOption(seed_rate) >> PosOption(pred_percent)>> PosOption(skip_rate)))
+    {
+        if (world.rank() == 0)
+        {
+            fprintf(stderr, "Check ops usage \n", argv[0]);
+            cout << ops;
+        }
+        return 1;
+    }
+
+	dprint("%s", particle_file.c_str());
+	size_t nsteps = 0, ntransfers = 0, nsteps_lagged = 0, nsteps_pred=0;
 
 	diy::Master master(world,
 					   threads,
@@ -395,7 +455,64 @@ int main()
 	assigner.local_gids(world.rank(), gids); // get the gids of local blocks
 	mpas1.gid = gids[0];
 
-	con(decaf, master, assigner, mpas1, pl);
+	con(decaf, master, assigner, mpas1, pl, particle_file);
+
+
+	// start pred
+
+
+	// // add master to block 
+	// std::vector<int> gids;                     // global ids of local blocks
+    // assigner.local_gids(world.rank(), gids);   // get the gids of local blocks
+
+	for (unsigned i = 0; i < gids.size(); ++i) // for the local blocks in this processor
+    {	block* b = new block();
+		int gid = gids[i];
+		b->gid = gid;
+
+		diy::Link*    link = new diy::Link;  // link is this block's neighborhood
+
+
+		// read mpas data
+		std::string fname_data = "output/output.nc";
+		b->loadMeshFromNetCDF_CANGA(world, fname_data, 0);
+		
+
+		
+		// read and add link
+		std::string fname_graph = "graph.info", fname_graphpart = gp_file;
+		//"graph.info.part." + std::to_string(world.size());
+		dprint("fname_graphpart %s", fname_graphpart.c_str());
+
+        set<int> links;
+        b->create_links(fname_graph, fname_graphpart, links);
+		for (int lgid: links){
+			// dprint("rank %d links to %ld", world.rank(), i);
+			diy::BlockID  neighbor;
+			neighbor.gid  = lgid;                     // gid of the neighbor block
+            neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+			link->add_neighbor(neighbor);
+		}
+
+
+	
+		// init particles
+		std::string fname_particles = particle_file; //"particles.nc";
+		b->init_seeds_particles(world, fname_particles, 0, seed_rate);
+
+		
+
+		b->init_partitions(); // must be called after loading mpas data, after setting b->gid, and after init_seeds_partitions
+		nCells = b->gcIdxToGid.size();
+		
+
+		master.add(gid, b, link);
+	}
+
+
+
+	// end pred
+
 
 	delete decaf;
 

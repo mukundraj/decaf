@@ -326,6 +326,8 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	velocityY.resize(nCells*nVertLevels);
 	velocityZ.resize(nCells*nVertLevels);
 
+	dprint("time_id %ld, nCells %ld nVertLevels %ld", time_id, nCells, nVertLevels);
+
 
 
 	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_velocityX, start_time_cell_level, size_time_cell_level, &velocityX[0]) );

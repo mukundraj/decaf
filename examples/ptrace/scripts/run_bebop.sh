@@ -4,7 +4,7 @@
 #SBATCH --account=pedal
 #SBATCH --partition=knlall
 #SBATCH --constraint knl,quad,cache
-#SBATCH --nodes=64
+#SBATCH --nodes=2
 #SBATCH --ntasks-per-node=32
 #SBATCH --output=p0.%j.%N.out
 #SBATCH --error=p0.%j.%N.error
@@ -17,7 +17,8 @@ exe=./ptrace
 
 
 # max_step
-dtSim=$((5000*7200*10))
+# dtSim=$((5000*7200*10))
+dtSim=$((5000))
 
 # stepsize
 dtParticle=$((300000/6))
@@ -54,12 +55,12 @@ prediction=0
 # args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
 # mpiexec -n $num_procs $exe $args
 
-# num_procs=32
-# particle_file="particles/particles32.nc"
-# gp_file="graphinfo/graph.info.part.32"
-# opts="--blocks 32 --check 0"
-# args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
-# mpiexec -n $num_procs $exe $args
+num_procs=32
+particle_file="particles/particles32.nc"
+gp_file="graphinfo/graph.info.part.32"
+opts="--blocks 32 --check 0"
+args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle"
+mpiexec -n $num_procs $exe $args
 
 # num_procs=64
 # particle_file="particles/particles64.nc"
@@ -96,12 +97,12 @@ prediction=0
 # args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
 # mpiexec -n $num_procs $exe $args
 
-num_procs=2048
-particle_file="particles/particles2048.nc"
-gp_file="graphinfo/graph.info.part.2048"
-opts="--blocks 2048 --check 0"
-args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
-mpiexec -n $num_procs $exe $args
+# num_procs=2048
+# particle_file="particles/particles2048.nc"
+# gp_file="graphinfo/graph.info.part.2048"
+# opts="--blocks 2048 --check 0"
+# args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
+# mpiexec -n $num_procs $exe $args
 
 
 
@@ -175,9 +176,9 @@ prediction=1
 # args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
 # mpiexec -n $num_procs $exe $args
 
-num_procs=2048
-particle_file="particles/particles2048.nc"
-gp_file="graphinfo/graph.info.part.2048"
-opts="--blocks 2048 --check 0"
-args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
-mpiexec -n $num_procs $exe $args
+# num_procs=2048
+# particle_file="particles/particles2048.nc"
+# gp_file="graphinfo/graph.info.part.2048"
+# opts="--blocks 2048 --check 0"
+# args="$opts $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent"
+# mpiexec -n $num_procs $exe $args
