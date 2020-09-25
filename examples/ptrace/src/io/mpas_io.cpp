@@ -40,7 +40,7 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 						break;
 
 				case 2:	
-						//printf(stderr, "Recv zCell %d,\n", data_id);
+						//fprintf(stderr, "Recv zCell %d,\n", data_id);
 						zCell = std::move(data_dbl);
 						break;
 
@@ -105,11 +105,11 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 						velocityZv[frame_no%2] = std::move(data_dbl);
 						break;
 
-				case 14://	fprintf(stderr, "Recv nEdgesOnCell %d,\n", data_id);
+				case 14:	//fprintf(stderr, "Recv nEdgesOnCell %d,\n", data_id);
 						nEdgesOnCell = std::move(data_int);
 						break;
 
-				case 15://	fprintf(stderr, "Recv maxLevelCell %d,\n", data_id);
+				case 15:	//fprintf(stderr, "Recv maxLevelCell %d,\n", data_id);
 						maxLevelCell = std::move(data_int);
 						break;
 
@@ -136,7 +136,7 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 						zMid[frame_no%2] = std::move(data_dbl);
 						break;
 
-				default:fprintf(stderr, "Exiting! %d,\n", data_id); 
+				default://fprintf(stderr, "Exiting! %d,\n", data_id); 
 						exit(0);
 						break;
 				}
