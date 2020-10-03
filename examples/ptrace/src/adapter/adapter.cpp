@@ -38,6 +38,9 @@ void decaf_put_int_array(int id, int frame_no, int size, int i1d[]){
 	SimpleFieldi field_id(id);
 	container->appendData("field_id", field_id, DECAF_NOFLAG, DECAF_PRIVATE, DECAF_SPLIT_DEFAULT, DECAF_MERGE_DEFAULT); 
 
+	SimpleFieldi frame_num(frame_no);
+	container->appendData("frame_num", frame_num, DECAF_NOFLAG, DECAF_PRIVATE, DECAF_SPLIT_DEFAULT, DECAF_MERGE_DEFAULT); 
+
 	VectorFieldi data (&i1d[0], size, size);
 	container->appendData("data_i", data, DECAF_NOFLAG, DECAF_PRIVATE, DECAF_SPLIT_DEFAULT, DECAF_MERGE_DEFAULT); 
 

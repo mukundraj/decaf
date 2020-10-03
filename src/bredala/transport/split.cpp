@@ -29,6 +29,7 @@ decaf::split_by_count(pConstructData& data,                             // Data 
         // Clearing the send buffer from previous iteration
         splitChunks.clear();
         destList.clear();
+        splitBuffer.clear();
 
         // Case where the current data model does not have data
         if(!data.getPtr() || data->getNbItems() == 0)

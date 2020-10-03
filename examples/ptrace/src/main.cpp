@@ -183,15 +183,18 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	std::string fname_particles = "particles2.nc", fname_graphinfo = "graph.info.part." + std::to_string(world.size());
 
 	// build kd tree
-	mpas1.create_cells_kdtree();
+	// mpas1.create_cells_kdtree();
 
 	
 
 	double time_trace = 0, time_gatherd = 0, time_lb = 0;
 
+	// int cnt = 0;
+
 	while (decaf->get(in_data))
 	{	
 		
+		// continue;
 
 		int n_velocityX = 0;
 		std::vector<int> indexToCellID;
@@ -211,114 +214,129 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 		{
 
 			SimpleFieldi d_metadata = in_data[i]->getFieldData<SimpleFieldi>("field_id");
+			// SimpleFieldi d_metadata = in_data.at("in")->getFieldData<SimpleFieldi>("field_id");
 			SimpleFieldi frame_num = in_data[i]->getFieldData<SimpleFieldi>("frame_num");
 			data_bar_int = in_data[i]->getFieldData<VectorFieldi>("data_i").getVector();
 			data_bar_dbl = in_data[i]->getFieldData<VectorFliedd>("data_d").getVector();
 
 			// printf("fieldid %d \n", d_metadata.getData());
-
-			int data_id = d_metadata.getData();
-			int framenum = frame_num.getData();
-
-			// dprint("data_id %d", data_id);
-
-			if (framenum == 1 && first_done == true)
-			{
-				// to deal with the output stream for restart files
-				// dprint("BREAKING");
-				break;
+			if (world.rank()==0){
+				int data_id = d_metadata.getData();
+				int framenum = frame_num.getData();
+				dprint("data_id %d, framenum %ld, %ld %ld, %d %f", data_id, framenum, data_bar_int.size(), data_bar_dbl.size(), data_bar_int[0], data_bar_dbl[0]);
 			}
-			if (framenum > 1)
-			{
-				first_done = true;
-			}
+			// if (d_metadata){
+			// 	int data_id = d_metadata.getData();
+			// 	// int framenum = frame_num.getData();
 
-			// all_gather data_bar
-			world.barrier();
-			double time_0 = MPI_Wtime();
-
-			all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
-			
-			world.barrier();
-			double time_1 = MPI_Wtime();
-			time_gatherd += time_1 - time_0;
-
-			mpas1.update_data(data_id, framenum, data_bar_int, data_bar_dbl);
-
-			// if (data_id==17){
-			// 	for (size_t i=0; i<mpas1.vertVelocityTop[framenum%2].size();i++)
-			// 		if (std::abs(mpas1.vertVelocityTop[framenum%2][i]-0.000000372406)<0.00000000001)
-			// 			dprint("found at %ld, %.10f", i, mpas1.vertVelocityTop[framenum%2][i]);
-
+			// 	if (world.rank() == 0)
+			// 		dprint("data_id %d, cnt %ld", data_id, cnt);
 			// }
 
-			if (framenum == 1 && data_id == 15)
-			{ // all static arrived
+			// if (frame_num){
+			// 	int framenum = frame_num.getData();
+			// 	if (world.rank() == 0)
+			// 		dprint("framenum %d, cnt %ld", framenum, cnt);
+			// }
+			// cnt++;
 
-				// create links
-				// diy::Link* link = new diy::Link;
-				RCLink *l = new RCLink(DIM, domain, domain);
-				// add links and block to master
-				master.add(mpas1.gid, &mpas1, l);
+			// if (framenum == 1 && first_done == true)
+			// {
+			// 	// to deal with the output stream for restart files
+			// 	// dprint("BREAKING");
+			// 	break;
+			// }
+			// if (framenum > 1)
+			// {
+			// 	first_done = true;
+			// }
 
-				// initialize particles
-				//if (world.rank() == 0)
-				//{
-					// mpas1.generate_new_particle_file();
-					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
-				//}
-			}
-			else if (framenum > 1 && data_id == 13)
-			{   // all dynamic arrived
-				// if ((data_id==13 && framenum>1) || (data_id==15 && framenum==1)){ // all dynamic arrived
+			// // all_gather data_bar
+			// world.barrier();
+			// double time_0 = MPI_Wtime();
 
-				// kdtre based balance
+			// all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
+			
+			// world.barrier();
+			// double time_1 = MPI_Wtime();
+			// time_gatherd += time_1 - time_0;
 
-				// dprint("IN HERE %d", framenum);
+			// mpas1.update_data(data_id, framenum, data_bar_int, data_bar_dbl);
 
-				bool wrap = false;
-				size_t samples = 512;
+			// // if (data_id==17){
+			// // 	for (size_t i=0; i<mpas1.vertVelocityTop[framenum%2].size();i++)
+			// // 		if (std::abs(mpas1.vertVelocityTop[framenum%2][i]-0.000000372406)<0.00000000001)
+			// // 			dprint("found at %ld, %.10f", i, mpas1.vertVelocityTop[framenum%2][i]);
 
-				world.barrier();
-				double time_0 = MPI_Wtime();
+			// // }
 
-				// ### Uncomment following line to enable kdtree ###
-				// diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
+			// if (framenum == 1 && data_id == 15)
+			// { // all static arrived
 
-				// master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
-				// {
-				// 	dprint("inside");
-				// 	dprint ("psize %ld", b->particles.size());
-				// });
+			// 	// create links
+			// 	// diy::Link* link = new diy::Link;
+			// 	RCLink *l = new RCLink(DIM, domain, domain);
+			// 	// add links and block to master
+			// 	master.add(mpas1.gid, &mpas1, l);
 
-				// advect
+			// 	// initialize particles
+			// 	//if (world.rank() == 0)
+			// 	//{
+			// 		// mpas1.generate_new_particle_file();
+			// 		mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
+			// 	//}
+			// }
+			// else if (framenum > 1 && data_id == 13)
+			// {   // all dynamic arrived
+			// 	// if ((data_id==13 && framenum>1) || (data_id==15 && framenum==1)){ // all dynamic arrived
 
-				world.barrier();
-				double time_1 = MPI_Wtime();
-				time_lb += time_1 - time_0;
+			// 	// kdtre based balance
 
-				//do{
-				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
-					// update field
-					pl.update_velocity_vectors(*b, framenum);
+			// 	// dprint("IN HERE %d", framenum);
 
-					// dprint("here2");
-					// trace particles
-					pl.compute_epoch(b, framenum);
-					// dprint("here3 rank %d", world.rank());
+			// 	bool wrap = false;
+			// 	size_t samples = 512;
 
-					// b->parallel_write_simstep_segments(world, framenum);
-				});
+			// 	world.barrier();
+			// 	double time_0 = MPI_Wtime();
 
-				world.barrier();
-				double time_2 = MPI_Wtime();
+			// 	// ### Uncomment following line to enable kdtree ###
+			// 	// diy::kdtree(master, assigner, DIM, domain, &block::particles, samples, wrap);
+
+			// 	// master.foreach([&](block* b, const diy::Master::ProxyWithLink& cp)
+			// 	// {
+			// 	// 	dprint("inside");
+			// 	// 	dprint ("psize %ld", b->particles.size());
+			// 	// });
+
+			// 	// advect
+
+			// 	world.barrier();
+			// 	double time_1 = MPI_Wtime();
+			// 	time_lb += time_1 - time_0;
+
+			// 	//do{
+			// 	master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+			// 		// update field
+			// 		pl.update_velocity_vectors(*b, framenum);
+
+			// 		// dprint("here2");
+			// 		// trace particles
+			// 		pl.compute_epoch(b, framenum);
+			// 		// dprint("here3 rank %d", world.rank());
+
+			// 		// b->parallel_write_simstep_segments(world, framenum);
+			// 	});
+
+			// 	world.barrier();
+			// 	double time_2 = MPI_Wtime();
 				
-				time_trace += time_2 - time_1;
-				//}while(reduce of all remaining particles not zero)
-				if (world.rank() == 0)
-					dprint("Completed dynamic frame %d", framenum);
+			// 	time_trace += time_2 - time_1;
+			// 	//}while(reduce of all remaining particles not zero)
+			// 	if (world.rank() == 0)
+			// 		dprint("Completed dynamic frame %d", framenum);
 				
-			}
+			// }
 
 		
 	
@@ -343,6 +361,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 int main()
 {
 	
+	dprint("In con");
 
 	block mpas1;
 	double dtSim = 7200, dtParticle = 300;
