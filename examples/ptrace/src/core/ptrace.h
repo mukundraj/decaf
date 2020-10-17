@@ -50,10 +50,14 @@ struct EndPt
 {
     int  pid;                                // particle ID
     Pt   pt;                                 // end pointof the trace
+    Pt   pt_hold;                            // holding place for p{xyz} during balancing
+    std::vector<std::vector<double>> cell_data;              // for storing zMid, zTop, vertVelTop
     int  sid;                                // segment ID of this part of the trace
     int  nsteps;                             // number of steps this particle went so far
     double zLevelParticle;
     int glCellIdx;                          // global cell index for current point
+     int predonly;                          // if predonly>0 : pt should be filtered out after load balancing; predonly=1 => load pt; predonly=2 => cellid pt
+    int source_gid;                         // only set for the cellid pts for reconstructing links
 
     const double& operator [](int i) const;
     double& operator [](int i);
@@ -108,7 +112,41 @@ struct Halo
 
 // specialize the serialization of a segment and Halo
 namespace diy
-{
+{   
+
+    template<>
+    struct Serialization<EndPt>
+    {
+        static
+        void save(diy::BinaryBuffer& bb, const EndPt& x)
+            {
+                       diy::save(bb, x.pid);
+                       diy::save(bb, x.pt);
+                       diy::save(bb, x.pt_hold);
+                       diy::save(bb, x.cell_data);
+                       diy::save(bb, x.sid);
+                       diy::save(bb, x.nsteps);
+                       diy::save(bb, x.zLevelParticle);
+                       diy::save(bb, x.glCellIdx);
+                       diy::save(bb, x.predonly);
+                       diy::save(bb, x.source_gid);
+            }
+        static
+        void load(diy::BinaryBuffer& bb, EndPt& x)
+            {
+                       diy::load(bb, x.pid);
+                       diy::load(bb, x.pt);
+                       diy::load(bb, x.pt_hold);
+                       diy::load(bb, x.cell_data);
+                       diy::load(bb, x.sid);
+                       diy::load(bb, x.nsteps);
+                       diy::load(bb, x.zLevelParticle);
+                       diy::load(bb, x.glCellIdx);
+                       diy::load(bb, x.predonly);
+                       diy::load(bb, x.source_gid);
+            }
+    };
+
     template<>
     struct Serialization<Segment>
     {

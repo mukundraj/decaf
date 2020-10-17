@@ -9,6 +9,80 @@
 #include <utility>
 // #include <pnetcdf.h>
 
+
+void block::create_links_from_gcIdToGid(const std::string &fname_graph, std::set<int> &links){
+
+	// cell_nbrs = read_csv(fname_graph, ' ');
+
+	int idx = 0;
+	for (size_t i = 1; i < gcIdToGid.size(); i++)
+	{
+		
+		if (gid == gcIdToGid[i])
+		{
+			
+			
+			// iterate over neighbors
+			for (int j=0; j<cell_nbrs[i].size(); j++){
+				
+				int nbr_cgid = cell_nbrs[i][j];
+				// cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// check if neighbor in different partition
+				if (gcIdToGid[nbr_cgid] != gid){
+				
+					links.insert(gcIdToGid[nbr_cgid]);
+				}
+			}
+			idx++;
+
+		}
+	}
+	
+
+}
+
+
+// creates the cellsOnCell from file (as opposed to from the incoming data)
+void block::create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links){
+
+	std::vector<std::vector<int>> cell_nbrs = read_csv(fname_graph, ' ');
+	// cellsOnCell.clear();
+	// cellsOnCell.resize(maxEdges*indexToCellID.size());
+
+	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphpart.c_str());
+	gcIdToGid.push_back(0);
+	for (size_t i = 0; i < partn_ids.size(); i++){
+		gcIdToGid.push_back(partn_ids[i][0]);
+		// if(gid==0 && i<100){
+		// 	dprint("i %ld gcIdxToGid[i] %d, len %ld", i, gcIdxToGid[i], gcIdxToGid.size());
+		// }
+	}
+	
+	int idx = 0;
+	for (size_t i = 0; i < partn_ids.size(); i++)
+	{
+		
+		if (gid == partn_ids[i][0])
+		{
+			
+			
+			// iterate over neighbors
+			for (int j=0; j<cell_nbrs[i+1].size(); j++){
+				
+				int nbr_cgid = cell_nbrs[i+1][j];
+				// cellsOnCell[idx*maxEdges+j] = nbr_cgid;
+				// check if neighbor in different partition
+				if (partn_ids[nbr_cgid-1][0] != gid){
+					links.insert(partn_ids[nbr_cgid-1][0]);
+				}
+			}
+			idx++;
+
+		}
+	}
+
+}
+
 std::vector<Halo> block::get_halo_info()
 {
 
@@ -27,7 +101,7 @@ std::vector<Halo> block::get_halo_info()
 			// make sure nbr_cell is valid
 			if (nbr_cellID != 0)
 			{
-				int nbr_gid = gcIdxToGid[nbr_cellID - 1];
+				int nbr_gid = gcIdToGid[nbr_cellID - 1];
 				// if neighbor gid != current gid add then add cell id request to nbr_gid
 				if (nbr_gid != gid)
 				{
@@ -98,12 +172,12 @@ void block::process_halo_req(Halo &h, int framenum)
 		h.zVertex.push_back(zVertex[vertexIndex[h.glVertexIDs[i]]]);
 		for (size_t j = 0; j < nVertLevels; j++)
 		{
-			h.velocityXv.push_back(velocityXv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.velocityYv.push_back(velocityYv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.velocityZv.push_back(velocityZv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.vertVelocityTop.push_back(vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.zMid.push_back(zMid[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
-			h.zTop.push_back(zTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.velocityXv.push_back(velocityXv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.velocityYv.push_back(velocityYv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.velocityZv.push_back(velocityZv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.vertVelocityTop.push_back(vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.zMid.push_back(zMid[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
+			// h.zTop.push_back(zTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]]);
 		}
 	}
 }
@@ -141,12 +215,12 @@ void block::update_halo_info(Halo &h, int framenum)
 	xVertex.resize(nVertices_all);
 	yVertex.resize(nVertices_all);
 	zVertex.resize(nVertices_all);
-	velocityXv[framenum % 2].resize(nVertices_all * nVertLevels);
-	velocityYv[framenum % 2].resize(nVertices_all * nVertLevels);
-	velocityZv[framenum % 2].resize(nVertices_all * nVertLevels);
-	vertVelocityTop[framenum % 2].resize(nVertices_all * nVertLevels);
-	zMid[framenum % 2].resize(nVertices_all * nVertLevels);
-	zTop[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityXv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityYv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityZv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// vertVelocityTop[framenum % 2].resize(nVertices_all * nVertLevels);
+	// zMid[framenum % 2].resize(nVertices_all * nVertLevels);
+	// zTop[framenum % 2].resize(nVertices_all * nVertLevels);
 
 	for (size_t i = 0; i < h.glVertexIDs.size(); i++)
 	{
@@ -161,12 +235,12 @@ void block::update_halo_info(Halo &h, int framenum)
 
 		for (size_t j = 0; j < nVertLevels; j++)
 		{
-			velocityXv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityXv[j + nVertLevels * i];
-			velocityYv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityYv[j + nVertLevels * i];
-			velocityZv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityZv[j + nVertLevels * i];
-			vertVelocityTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.vertVelocityTop[j + nVertLevels * i];
-			zMid[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
-			zTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
+			// velocityXv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityXv[j + nVertLevels * i];
+			// velocityYv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityYv[j + nVertLevels * i];
+			// velocityZv[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.velocityZv[j + nVertLevels * i];
+			// vertVelocityTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.vertVelocityTop[j + nVertLevels * i];
+			// zMid[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
+			// zTop[framenum % 2][j + nVertLevels * (nVertices_local + i)] = h.zTop[j + nVertLevels * i];
 		}
 	}
 }
@@ -181,12 +255,12 @@ void block::process_halo_dynamic(int framenum)
 		Halo &h = halo_info[g];
 		size_t nVerts_to_send = h.glVertexIDs.size();
 
-		h.velocityXv.resize(nVerts_to_send * nVertLevels);
-		h.velocityYv.resize(nVerts_to_send * nVertLevels);
-		h.velocityZv.resize(nVerts_to_send * nVertLevels);
-		h.zMid.resize(nVerts_to_send * nVertLevels);
-		h.zTop.resize(nVerts_to_send * nVertLevels);
-		h.vertVelocityTop.resize(nVerts_to_send * nVertLevels);
+		// h.velocityXv.resize(nVerts_to_send * nVertLevels);
+		// h.velocityYv.resize(nVerts_to_send * nVertLevels);
+		// h.velocityZv.resize(nVerts_to_send * nVertLevels);
+		// h.zMid.resize(nVerts_to_send * nVertLevels);
+		// h.zTop.resize(nVerts_to_send * nVertLevels);
+		// h.vertVelocityTop.resize(nVerts_to_send * nVertLevels);
 
 		// iterate over vertices
 		for (size_t i = 0; i < nVerts_to_send; i++)
@@ -195,12 +269,12 @@ void block::process_halo_dynamic(int framenum)
 			for (size_t j = 0; j < nVertLevels; j++)
 			{
 
-				h.velocityXv[j] = velocityXv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
-				h.velocityYv[j] = velocityYv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
-				h.velocityZv[j] = velocityZv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
-				h.vertVelocityTop[j] = vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
-				h.zMid[j] = zMid[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
-				h.zTop[j] = zTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.velocityXv[j] = velocityXv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.velocityYv[j] = velocityYv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.velocityZv[j] = velocityZv[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.vertVelocityTop[j] = vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.zMid[j] = zMid[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
+				// h.zTop[j] = zTop[framenum % 2][j + nVertLevels * vertexIndex[h.glVertexIDs[i]]];
 			}
 		}
 	}
@@ -215,12 +289,12 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 	xVertex.resize(nVertices_all);
 	yVertex.resize(nVertices_all);
 	zVertex.resize(nVertices_all);
-	velocityXv[framenum % 2].resize(nVertices_all * nVertLevels);
-	velocityYv[framenum % 2].resize(nVertices_all * nVertLevels);
-	velocityZv[framenum % 2].resize(nVertices_all * nVertLevels);
-	vertVelocityTop[framenum % 2].resize(nVertices_all * nVertLevels);
-	zMid[framenum % 2].resize(nVertices_all * nVertLevels);
-	zTop[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityXv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityYv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// velocityZv[framenum % 2].resize(nVertices_all * nVertLevels);
+	// vertVelocityTop[framenum % 2].resize(nVertices_all * nVertLevels);
+	// zMid[framenum % 2].resize(nVertices_all * nVertLevels);
+	// zTop[framenum % 2].resize(nVertices_all * nVertLevels);
 
 	for (size_t i = 0; i < h.glVertexIDs.size(); i++)
 	{
@@ -232,12 +306,12 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 		for (size_t j = 0; j < nVertLevels; j++)
 		{
 
-			velocityXv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityXv[j + nVertLevels * i];
-			velocityYv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityYv[j + nVertLevels * i];
-			velocityZv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityZv[j + nVertLevels * i];
-			zMid[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.zMid[j + nVertLevels * i];
-			zTop[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.zTop[j + nVertLevels * i];
-			vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.vertVelocityTop[j + nVertLevels * i];
+			// velocityXv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityXv[j + nVertLevels * i];
+			// velocityYv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityYv[j + nVertLevels * i];
+			// velocityZv[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.velocityZv[j + nVertLevels * i];
+			// zMid[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.zMid[j + nVertLevels * i];
+			// zTop[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.zTop[j + nVertLevels * i];
+			// vertVelocityTop[framenum % 2][j + nVertLevels * vertexIndex[vertID]] = h.vertVelocityTop[j + nVertLevels * i];
 		}
 	}
 }
@@ -248,7 +322,7 @@ void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> 
 	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphinfo.c_str());
 
 	for (size_t i = 0; i < partn_ids.size(); i++)
-		gcIdxToGid.push_back(partn_ids[i][0]);
+		gcIdToGid.push_back(partn_ids[i][0]);
 
 	for (size_t i = 0; i < partn_ids.size(); i++)
 	{

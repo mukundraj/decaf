@@ -22,7 +22,7 @@ void pvi(std::vector<double> &v, int n=0);
 	if (0) fprintf(stderr, format " %s %d \n", ## __VA_ARGS__, split_filename(__FILE__).c_str(), __LINE__)
     
 
-std::vector<std::vector<int>> read_csv(const std::string &filename);
+std::vector<std::vector<int>> read_csv(const std::string &filename, char delemiter=',');
 
 
 #if SIZE_MAX == UCHAR_MAX

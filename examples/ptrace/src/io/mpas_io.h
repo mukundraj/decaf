@@ -5,6 +5,7 @@
 #include <vector>
 #include <map>
 #include "nabo/nabo.h"
+#include <diy/mpi.hpp>
 
 class mpas_io
 {
@@ -17,20 +18,25 @@ public:
 	double cx, cy, cz;
 
 	/* Field data */
-	size_t nCells, nEdges, nVertices, nVertLevels, maxEdges, nVertLevelsP1;
+	// size_t nCells, nEdges, nVertices, nVertLevels, maxEdges, nVertLevelsP1;
+	long long int nCells, nEdges, nVertices, nVertLevels, maxEdges, nVertLevelsP1;
     std::vector<double> latVertex, lonVertex, xVertex, yVertex, zVertex;
     std::vector<double> xyzCell, xCell, yCell, zCell;
     std::vector<int> indexToVertexID, indexToCellID;
     std::vector<int> verticesOnEdge, cellsOnVertex, verticesOnCell;
 
     std::vector<double> velocityX, velocityY, velocityZ;
-    std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
-    std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
+    // std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
+    // std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
     std::vector<double> zTopVertex, zTopVertexNorm;
     std::map<int, int> vertexIndex, cellIndex;
     std::vector<int> nEdgesOnCell, maxLevelCell;
     std::vector<int> boundaryVertex;
     std::vector<int> cellsOnCell;
+
+	// Field data for streamlines
+	std::vector<double> uVertexVelocity, vVertexVelocity, wVertexVelocity;
+	std::vector<double> zTop, zMid, vertVelocityTop;
 
     // Global values
     size_t nVertices_global;
@@ -43,9 +49,14 @@ public:
 	std::vector<double> zLevelParticle;
 
 
+	std::vector<std::vector<int>> cell_nbrs;
+
+
 	mpas_io();
 
 	void update_data(int data_id, int frame_no, std::vector<int> &data_int, std::vector<double> &data_dbl);
+	
+	void loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std::string& filename, long long int time_id, const std::string &fname_graph);
 
 
 	/* KDTree */

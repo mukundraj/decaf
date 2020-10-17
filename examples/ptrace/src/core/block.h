@@ -20,16 +20,18 @@ public:
 	size_t maxEdges = 6;
 	// size_t nCells = 7234;
 
-	std::vector<int> gcIdxToGid; // global cell index to global block id
+	std::vector<int> gcIdToGid; // global cell index to global block id
 	std::vector<int> gVIdxToGid; // global vertex index to global block id
 	std::vector<Halo> halo_info; // stores the info on halo cellID and vertexID
+
+	
 
 	/*particle related */
 	std::vector<EndPt> particles;
 	int init=0, done=0;
 	vector<Segment> segments; // finished segments of particle traces
 
-	
+	void create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links);
 
 	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 	
@@ -47,6 +49,8 @@ public:
 
 	void parallel_write_simstep_segments(diy::mpi::communicator &comm, int framenum);
 	void parallel_write_segments(diy::mpi::communicator &comm, int max_steps);
+
+	void create_links_from_gcIdToGid(const std::string &fname_graph, std::set<int> &links);
 
 };
 

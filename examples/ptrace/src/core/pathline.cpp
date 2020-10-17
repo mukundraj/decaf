@@ -5,8 +5,84 @@
 #include "geometry_utils.h"
 #include "block.h"
 #include "advect.h"
+#include <unordered_set>
 
 using namespace Eigen;
+
+
+void pathline::cell_to_vertex_interpolation(block *b, std::vector<int> &local_gcIds){
+
+	std::unordered_set<int> completed_verts;
+
+	// dprint("verticesOnCell size %ld", b->verticesOnCell.size());
+
+	for (size_t i=0; i<local_gcIds.size(); i++){
+		int cellIdx = local_gcIds[i]-1;
+		// loop over vertices on cellId
+		for (int j=0; j<b->maxEdges; j++){
+			int vid = b->verticesOnCell[b->maxEdges*cellIdx + j];
+			// if vertId in completed_verts, skip remaining in this iteration
+			if (completed_verts.find(vid)==completed_verts.end()){
+				completed_verts.insert(vid);
+				int aVertex = vid - 1;
+				
+				const int vertexDegree = 3;
+				
+				// get pointVertex: pos of cells surrounding vertex
+				double pointVertex[vertexDegree][3];
+				for (int aCell=0; aCell < vertexDegree; aCell++){
+
+					int cellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
+					pointVertex[0][aCell] = b->xCell[b->cellsOnVertex[cellIdx ]];
+					pointVertex[1][aCell] = b->yCell[b->cellsOnVertex[cellIdx ]];
+					pointVertex[2][aCell] = b->zCell[b->cellsOnVertex[cellIdx ]];
+
+				}
+
+				// get pointInterp: pos of vertex
+				Array3d pointInterp;
+				pointInterp(0) = b->xVertex[aVertex];
+				pointInterp(1) = b->yVertex[aVertex];
+				pointInterp(2) = b->zVertex[aVertex];
+
+				// get interpolation constants (lambda)
+				double lambda[vertexDegree];
+				double areaB[vertexDegree];
+				wachspress_coordinates(*b, vertexDegree, pointVertex, pointInterp, areaB, &lambda[0]);
+
+				
+				// interpolate and store
+				for (int aLevel=0; aLevel<b->nVertLevels; aLevel++){
+					if (b->boundaryVertex[b->nVertLevels*aVertex + aLevel] < 1){
+						
+						// get cell center velocities
+						double ucCell[vertexDegree][3];
+
+						for(int aCell=0; aCell < vertexDegree; aCell++){
+							int cellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
+							ucCell[aCell][0] = b->velocityX[cellIdx * b->nVertLevels + aLevel];
+							ucCell[aCell][1] = b->velocityX[cellIdx * b->nVertLevels + aLevel];
+							ucCell[aCell][2] = b->velocityX[cellIdx * b->nVertLevels + aLevel];
+						}
+
+						b->uVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
+						b->vVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 1, vertexDegree);
+						b->wVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 2, vertexDegree);
+					}
+				}
+
+
+			}
+
+		}
+
+			
+
+
+	}
+
+	
+}
 
 pathline::pathline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 {
@@ -568,48 +644,48 @@ double pathline::interp_vert_velocity_to_zlevel(mpas_io &mpas1, const int iLevel
 void pathline::update_velocity_vectors(mpas_io &mpas1, int frame_no)
 {
 
-	uVertexVelocities[0] = &mpas1.velocityXv[(frame_no + 1) % 2][0];
-	vVertexVelocities[0] = &mpas1.velocityYv[(frame_no + 1) % 2][0];
-	wVertexVelocities[0] = &mpas1.velocityZv[(frame_no + 1) % 2][0];
+	// uVertexVelocities[0] = &mpas1.velocityXv[(frame_no + 1) % 2][0];
+	// vVertexVelocities[0] = &mpas1.velocityYv[(frame_no + 1) % 2][0];
+	// wVertexVelocities[0] = &mpas1.velocityZv[(frame_no + 1) % 2][0];
 
-	uVertexVelocities[1] = &mpas1.velocityXv[frame_no % 2][0];
-	vVertexVelocities[1] = &mpas1.velocityYv[frame_no % 2][0];
-	wVertexVelocities[1] = &mpas1.velocityZv[frame_no % 2][0];
+	// uVertexVelocities[1] = &mpas1.velocityXv[frame_no % 2][0];
+	// vVertexVelocities[1] = &mpas1.velocityYv[frame_no % 2][0];
+	// wVertexVelocities[1] = &mpas1.velocityZv[frame_no % 2][0];
 
-	zMid_cur = &mpas1.zMid[(frame_no + 1) % 2][0];
-	zTop_cur = &mpas1.zTop[(frame_no + 1) % 2][0];
+	// zMid_cur = &mpas1.zMid[(frame_no + 1) % 2][0];
+	// zTop_cur = &mpas1.zTop[(frame_no + 1) % 2][0];
 
-	zMid_cur_size = mpas1.zMid[(frame_no + 1) % 2].size();
-	zTop_cur_size = mpas1.zTop[(frame_no + 1) % 2].size();
+	// zMid_cur_size = mpas1.zMid[(frame_no + 1) % 2].size();
+	// zTop_cur_size = mpas1.zTop[(frame_no + 1) % 2].size();
 
-	vertVelocityTop_cur = &mpas1.vertVelocityTop[(frame_no + 1) % 2][0];
-	// dprint("vertVelocityTop_cur size %ld", mpas1.vertVelocityTop[(frame_no + 1) % 2].size());
+	// vertVelocityTop_cur = &mpas1.vertVelocityTop[(frame_no + 1) % 2][0];
+	// // dprint("vertVelocityTop_cur size %ld", mpas1.vertVelocityTop[(frame_no + 1) % 2].size());
 
-	// initialize first frame to zero if first round of advection
-	temp.resize(mpas1.velocityXv[frame_no % 2].size());
-	if (frame_no == 2){
-		uVertexVelocities[0] = &temp[0];
-		vVertexVelocities[0] = &temp[0];
-		wVertexVelocities[0] = &temp[0];
-	}
-
-	// if (frame_no==2){
-	// 	// uVertexVelocities[0] = &mpas1.velocityXv[(frame_no) % 2][0];
-	// 	// vVertexVelocities[0] = &mpas1.velocityYv[(frame_no) % 2][0];
-	// 	// wVertexVelocities[0] = &mpas1.velocityZv[(frame_no) % 2][0];
-	// 	// zMid_cur = &mpas1.zMid[(frame_no) % 2][0];
-	// 	// zTop_cur = &mpas1.zTop[(frame_no) % 2][0];
-	// 	// zMid_cur_size = mpas1.zMid[(frame_no) % 2].size();
-	// 	// zTop_cur_size = mpas1.zTop[(frame_no) % 2].size();
-
-	// 	// std::vector<double> temp(mpas1.vertVelocityTop.size());
-
-	// 	// vertVelocityTop_cur = &mpas1.vertVelocityTop[(frame_no) % 2][0];
-	// 	uVertexVelocities[1] = uVertexVelocities[0]; // &mpas1.velocityXv[(frame_no) % 2][0];
-	// 	vVertexVelocities[1] = vVertexVelocities[0]; // &mpas1.velocityYv[(frame_no) % 2][0];
-	// 	wVertexVelocities[1] = wVertexVelocities[0]; // &mpas1.velocityZv[(frame_no) % 2][0];
-
-
-
+	// // initialize first frame to zero if first round of advection
+	// temp.resize(mpas1.velocityXv[frame_no % 2].size());
+	// if (frame_no == 2){
+	// 	uVertexVelocities[0] = &temp[0];
+	// 	vVertexVelocities[0] = &temp[0];
+	// 	wVertexVelocities[0] = &temp[0];
 	// }
+
+	// // if (frame_no==2){
+	// // 	// uVertexVelocities[0] = &mpas1.velocityXv[(frame_no) % 2][0];
+	// // 	// vVertexVelocities[0] = &mpas1.velocityYv[(frame_no) % 2][0];
+	// // 	// wVertexVelocities[0] = &mpas1.velocityZv[(frame_no) % 2][0];
+	// // 	// zMid_cur = &mpas1.zMid[(frame_no) % 2][0];
+	// // 	// zTop_cur = &mpas1.zTop[(frame_no) % 2][0];
+	// // 	// zMid_cur_size = mpas1.zMid[(frame_no) % 2].size();
+	// // 	// zTop_cur_size = mpas1.zTop[(frame_no) % 2].size();
+
+	// // 	// std::vector<double> temp(mpas1.vertVelocityTop.size());
+
+	// // 	// vertVelocityTop_cur = &mpas1.vertVelocityTop[(frame_no) % 2][0];
+	// // 	uVertexVelocities[1] = uVertexVelocities[0]; // &mpas1.velocityXv[(frame_no) % 2][0];
+	// // 	vVertexVelocities[1] = vVertexVelocities[0]; // &mpas1.velocityYv[(frame_no) % 2][0];
+	// // 	wVertexVelocities[1] = wVertexVelocities[0]; // &mpas1.velocityZv[(frame_no) % 2][0];
+
+
+
+	// // }
 }

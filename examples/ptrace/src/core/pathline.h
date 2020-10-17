@@ -63,6 +63,9 @@ public:
 
 	double wachspress_interpolate(const double *lambda, const double phi[][3], const int idx, const int nCellVertices  );
 
+	// computes the vertex velocites for all vertices that lie on cells in local_gcIds
+	void cell_to_vertex_interpolation(block *b, std::vector<int> &local_gcIds);
+
 };
 
 
