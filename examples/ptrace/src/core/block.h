@@ -24,16 +24,21 @@ public:
 	std::vector<int> gVIdxToGid; // global vertex index to global block id
 	std::vector<Halo> halo_info; // stores the info on halo cellID and vertexID
 
+	/* To check if inside partition */
+	vector<int> in_partition;
+	unordered_set<int> in_partition_set; // same as in_partition in set format
+
 	
 
 	/*particle related */
 	std::vector<EndPt> particles;
 	int init=0, done=0;
 	vector<Segment> segments; // finished segments of particle traces
+	std::vector<EndPt> particles_store; // staging area for dequeing particles
 
 	void create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links);
 
-	void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
+	// void create_links_mpas(const std::string &fname_particles, std::set<int> &links, diy::mpi::communicator &world);
 	
 	void init_seeds_mpas(std::string &fname_particles, int framenum, int rank);
 
@@ -52,6 +57,8 @@ public:
 
 	void create_links_from_gcIdToGid(const std::string &fname_graph, std::set<int> &links);
 
+	void init_seeds_particles(diy::mpi::communicator& world, std::string &fname_particles, int framenum, int seed_rate);
+	void init_partitions();
 };
 
 namespace diy

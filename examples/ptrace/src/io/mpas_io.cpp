@@ -27,6 +27,55 @@ mpas_io::mpas_io(){
 
 }
 
+void mpas_io::move_data_to_regular_position(){
+
+	// create buffers
+	std::vector<double> tmp_velocityX(nCells * nVertLevels);
+	std::vector<double> tmp_velocityY(nCells * nVertLevels);
+	std::vector<double> tmp_velocityZ(nCells * nVertLevels);
+	std::vector<double> tmp_vertVelocityTop(nCells * nVertLevelsP1);
+	std::vector<double> tmp_zTop(nCells * nVertLevels);
+	std::vector<double> tmp_zMid(nCells * nVertLevels);
+
+	// dprint("indexToCellid size %ld", indexToCellID.size());
+
+	// iterate through each cell and copy data to tmp
+	int ctr;
+	int flag =0;
+	for (auto id: indexToCellID){
+		int idx = id - 1;
+
+		// if (id == 5471)	{
+		// 	dprint("found id %d , ctr %d", id, ctr);
+		// 	flag =1;
+		// 	for (size_t i=ctr*nVertLevels; i<ctr*nVertLevels+nVertLevels; i++)
+		// 		fprintf(stderr, "%f ", zMid[i]);
+		// }
+
+		tmp_velocityX.insert(tmp_velocityX.begin() + idx * nVertLevels, velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels);
+		tmp_velocityY.insert(tmp_velocityY.begin() + idx * nVertLevels, velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels);
+		tmp_velocityZ.insert(tmp_velocityZ.begin() + idx * nVertLevels, velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels);
+		tmp_vertVelocityTop.insert(tmp_vertVelocityTop.begin()+idx*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1);
+		tmp_zTop.insert(tmp_zTop.begin() + idx * nVertLevels, zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels);
+		tmp_zMid.insert(tmp_zMid.begin() + idx * nVertLevels, zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels);
+
+
+		ctr++;
+	}
+
+
+
+	// move the tmp to mpas1
+	velocityX = std::move(tmp_velocityX);
+	velocityY = std::move(tmp_velocityY);
+	velocityZ = std::move(tmp_velocityZ);
+	vertVelocityTop = std::move(tmp_vertVelocityTop);
+	zTop = std::move (tmp_zTop);
+	zMid = std::move(tmp_zMid);
+
+		
+}
+
 void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int, std::vector<double> &data_dbl){
 
 	switch(data_id){
@@ -59,18 +108,18 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 				case 6:	//fprintf(stderr, "Recv indexToVertexID %d,\n", data_id);
 						//indexToVertexID = std::move(data_int);
 
-						for (int i=0; i<indexToVertexID.size(); i++) { 
-								vertexIndex[indexToVertexID[i]] = i;
-						}
+						// for (int i=0; i<indexToVertexID.size(); i++) { 
+						// 		vertexIndex[indexToVertexID[i]] = i;
+						// }
 						
 						break;
 
 				case 7:	//fprintf(stderr, "Recv indexToCellID %d,\n", data_id);
 						indexToCellID = std::move(data_int);
 						
-						for (int i=0; i<indexToCellID.size(); i++) { 
-								cellIndex[indexToCellID[i]] = i;
-						}
+						// for (int i=0; i<indexToCellID.size(); i++) { 
+						// 		cellIndex[indexToCellID[i]] = i;
+						// }
 						break;
 
 				case 8:	//fprintf(stderr, "Recv verticesOnEdge %d,\n", data_id);
@@ -305,10 +354,10 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_yVertex, start_vertices, size_vertices, &yVertex[0]) );
 	PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zVertex, start_vertices, size_vertices, &zVertex[0]) );
 
-	for (int i=0; i<nVertices; i++) {
-		vertexIndex[indexToVertexID[i]] = i;
-		// fprintf(stderr, "%d, %d\n", i, indexToVertexID[i]);
-	}
+	// for (int i=0; i<nVertices; i++) {
+	// 	vertexIndex[indexToVertexID[i]] = i;
+	// 	// fprintf(stderr, "%d, %d\n", i, indexToVertexID[i]);
+	// }
 
 	const MPI_Offset start_edges2[2] = {0, 0}, size_edges2[2] = {nEdges, 2};
 	verticesOnEdge.resize(nEdges*2);
@@ -329,7 +378,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	velocityY.resize(nCells*nVertLevels);
 	velocityZ.resize(nCells*nVertLevels);
 
-	dprint("time_id %ld, nCells %ld nVertLevels %ld", time_id, nCells, nVertLevels);
+	// dprint("time_id %ld, nCells %ld nVertLevels %ld", time_id, nCells, nVertLevels);
 
 
 

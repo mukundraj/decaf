@@ -29,7 +29,7 @@ public:
     // std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
     // std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
     std::vector<double> zTopVertex, zTopVertexNorm;
-    std::map<int, int> vertexIndex, cellIndex;
+    // std::map<int, int> vertexIndex, cellIndex;
     std::vector<int> nEdgesOnCell, maxLevelCell;
     std::vector<int> boundaryVertex;
     std::vector<int> cellsOnCell;
@@ -50,6 +50,9 @@ public:
 
 
 	std::vector<std::vector<int>> cell_nbrs;
+	std::vector<int> currentBlock;
+
+	std::vector<int> debugarray;
 
 
 	mpas_io();
@@ -63,6 +66,8 @@ public:
 	Eigen::MatrixXd C_local;
 	Nabo::NNSearchD*  nns_cells;
 	void create_cells_kdtree();
+
+	void move_data_to_regular_position();
 
 };
 
