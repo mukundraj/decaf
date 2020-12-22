@@ -97,37 +97,37 @@ void enqueue_ghost_cells_to_nbrs(std::vector<int> &local_gcIds, block *b, const 
 	
 	
 	std::map<diy::BlockID, std::vector<EndPt>>   outgoing_cells;
+	
+	dprint("local_gcIds %ld", local_gcIds.size());
 	for (size_t i = 1; i < local_gcIds.size(); i++)
 	{	
 		int gcId = local_gcIds[i];
 		// if (i<10)
-		// 	dprint("i %d size %ld", i, b->cell_nbrs[gcId].size())
+			// dprint("i %d size %ld", i, b->cell_nbrs[gcId].size())
 		for (size_t j=0; j<b->cell_nbrs[gcId].size();j++){
 			int nbr_gcId = b->cell_nbrs[gcId][j]; 
-			// dprint("nbr_gcId %d, %d %ld", nbr_gcId, gcId, j);
 			int nbr_gid = b->gcIdToGid[b->cell_nbrs[gcId][j]];
 			if (nbr_gid != mpas1.gid){
 				// send info of gcId to nbr_gid, store in cell_data
-
 				EndPt endpt;
 				endpt.glCellIdx = gcId - 1;
 				copy_cell_data_to_endpt(endpt, *b, endpt.glCellIdx);
 
 				int dest_gid = nbr_gid;
+				// if (dest_gid<0 || dest_gid>32)
+				// 	dprint("alert rank %d, dest_gid %d", cp.gid(), dest_gid);
 				int dest_proc = assigner.rank(dest_gid);
 				diy::BlockID dest_block = {dest_gid, dest_proc};
 
 				outgoing_cells[dest_block].push_back(endpt);
-				// if (nbr_gid==0){
-				// 	dprint("gcId %d, nbr %d, nbr_gcId %d nbr_gid %d", gcId, dest_gid, nbr_gcId, nbr_gid);
-				// }
-
 			}
 		}
 
 	
 		
 	}
+
+	dprint("before enqueing");
 
 	for (auto elem: outgoing_cells){
 		cp.enqueue(elem.first, elem.second);
@@ -208,6 +208,7 @@ bool trace_particles(block *b,
 bool first_done = false;
 
 size_t nsteps = 0;
+double time_prep=0, time_predrun=0, time_kdtree=0, time_readdata=0, time_filter=0, time_final=0;
 
 // consumer
 void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, block &mpas1, pathline &pl, string &gp_file, double dtSim, double dtParticle, std::string& particle_file, int seed_rate, int pred_percent, const int max_steps, int skip_rate, int prediction)
@@ -228,6 +229,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	std::vector<int> gids;                     // global ids of local blocks
     assigner.local_gids(world.rank(), gids);   // get the gids of local blocks
 
+	dprint("in consumer");
+
 	for (unsigned i = 0; i < gids.size(); ++i) // for the local blocks in this processor
     {	block* b = new block();
 		int gid = gids[i];
@@ -240,8 +243,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 		// dprint("fname_graphpart %s", fname_graphpart.c_str());
 		// read mpas data
 		std::string fname_data = "output2.nc";
+		dprint("before loading..");
 		b->loadMeshFromNetCDF_CANGA(world, fname_data, 0, fname_graph);
-		
 
 		// read and add link
         set<int> links;
@@ -282,8 +285,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 
 
-
-	double time_trace = 0, time_gatherd = 0, time_lb = 0;
+	double time_trace = 0, time_gatherd = 0, time_lb = 0, time_tot = 0;
+	
 
 	// int cnt = 0;
 
@@ -320,23 +323,39 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				int data_id = d_metadata.getData();
 				int framenum = frame_num.getData();
 				if (world.rank()==0){
-					dprint("data_id %d, framenum %ld, %ld %ld, %d %f", data_id, framenum, data_bar_int.size(), data_bar_dbl.size(), data_bar_int[0], data_bar_dbl[0]);
+					// dprint("data_id %d, framenum %ld, %ld %ld, %d %f", data_id, framenum, data_bar_int.size(), data_bar_dbl.size(), data_bar_int[0], data_bar_dbl[0]);
 				}
+
+			master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+					mpas1.nVertLevels = b->nVertLevels;
+					mpas1.nVertLevelsP1 = b->nVertLevelsP1;
+					mpas1.nCells = b->nCells;
+					mpas1.nEdges = b->nEdges;
+					mpas1.maxEdges = b->maxEdges;
+					mpas1.radius = b->radius;
+			});
 			
 			mpas1.update_data(data_id, framenum, data_bar_int, data_bar_dbl);
 
-			mpas1.debugarray.resize(20);
+			// mpas1.debugarray.resize(20);
 		
 
-		
 		
 	
 		
+		
 
 		if (data_id == 15){ // all static data has arrived
+			// if (world.rank()==0)
+
+			world.barrier();
+        	double time0 = MPI_Wtime(); 
 
 			// reshuffle the data (vel{xyz},zTop, zMid, and vertVelocityTop) to regular positions
 			mpas1.move_data_to_regular_position();
+
+			// if (world.rank()==0)
+				dprint("rank %d , after data moved to regular positions", world.rank() );
 
 
 			std::vector<EndPt> particles_hold; // staging area for holding to-be-predicted particles
@@ -345,7 +364,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				Bounds domain{DIM};
 				for (unsigned i = 0; i < DIM; ++i)
 				{
-					domain.min[i] = -6371329. - 100; // 6371229. for EC
+					domain.min[i] = -6371329. - 100; // 6371229. for EC,ec
 					domain.max[i] = 6371329. + 100;
 				}
 					
@@ -434,14 +453,16 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					});
 
 					diy::mpi::all_reduce (world, gcIdToGid_local, gcIdToGid_global,  std::plus<int>());
-
+					
 					// do initial ghost exchange
 					master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {	
+
 						enqueue_ghost_cells_to_nbrs(local_gcIds, b, cp, assigner, gcIdToGid_global, mpas1);
 
 						
 					});
 					master.exchange();
+
 					master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 
 						// if (cp.gid()==0){
@@ -452,6 +473,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 						// }
 
 						deque_ghost_cells_from_nbrs(b, cp);
+
 
 						// if (cp.gid() == 0)
 						// {
@@ -468,7 +490,11 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					});
 
 
-					// dprint("Doing initial advection...");
+					world.barrier();
+					double time1 = MPI_Wtime(); 
+					time_readdata += time1 - time0;
+
+					dprint("Doing initial advection...");
 
 
 					if (prediction){
@@ -792,13 +818,13 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 	
 
-	std::vector<int> global_debugarray(mpas1.debugarray.size());
-	diy::mpi::all_reduce (world, mpas1.debugarray, global_debugarray, std::plus<int>());
+	// std::vector<int> global_debugarray(mpas1.debugarray.size());
+	// diy::mpi::all_reduce (world, mpas1.debugarray, global_debugarray, std::plus<int>());
 
 
 	if (world.rank()==0){
 		dprint("done ");
-		pvi(global_debugarray);
+		// pvi(global_debugarray);
 	}
 
 
@@ -907,7 +933,7 @@ int main(int argc, char* argv[])
 	diy::mpi::reduce(world, nsteps, nsteps_global, 0, std::plus<size_t>());
 
 	if (world.rank()==0)
-		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, bal , %f, time_tot , %f, time_overhead, %f, worldsize, %d, minsteps, %ld, dtSim %f, dtParticle, %f,\n", prediction, nsteps_global, 0, double(0.0), double(0.0), double(0.0), world.size(), 0, dtSim, dtParticle);
+		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, bal , %f, time_tot , %f, time_readdata, %f, worldsize, %d, minsteps, %ld, dtSim %f, dtParticle, %f,\n", prediction, nsteps_global, 0, double(0.0), double(0.0), time_readdata, world.size(), 0, dtSim, dtParticle);
 
 
 	// MPI_Finalize(); // called by diy for consumers

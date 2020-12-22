@@ -4,8 +4,8 @@
 #SBATCH --account=pedal
 #SBATCH --partition=knlall
 #SBATCH --constraint knl,quad,cache
-#SBATCH --nodes=2
-#SBATCH --ntasks-per-node=32
+#SBATCH --nodes=1
+#SBATCH --ntasks-per-node=64
 #SBATCH --output=p0.%j.%N.out
 #SBATCH --error=p0.%j.%N.error
 #SBATCH --mail-user=mraj@anl.gov
@@ -33,18 +33,18 @@ dtSim=$((5000*7200))
 dtParticle=$((300000/6))
 
 # stepsize
-dtParticle=300000
+dtParticle=50000
 
-# seed rate
-seed_rate=1
+# seed rate 
+seed_rate=10
 
 
 # with prediction
-prediction=1
+# prediction=1
 
-num_procs=512
+# num_procs=512
 
-pred_percent=5
+# pred_percent=5
 
 # skip_rate=1
 # particle_file="/home/mraj/tests/parfiles/particles8.nc"
@@ -55,6 +55,16 @@ pred_percent=5
 # mpiexec -n $num_procs $exe $args
 
 
+python gs08.py
+srun -n 16 -l --multi-prog my.config08
 
-#srun -n 16 -l --multi-prog my.config08
+python gs16.py
+srun -n 32 -l  --multi-prog my.config16
+
+python gs32.py
 srun -n 64 -l  --multi-prog my.config32
+
+# python gs64.py
+# srun -n 128 -l  --multi-prog my.config64
+
+

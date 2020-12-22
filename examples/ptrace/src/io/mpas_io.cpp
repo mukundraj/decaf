@@ -36,8 +36,8 @@ void mpas_io::move_data_to_regular_position(){
 	std::vector<double> tmp_vertVelocityTop(nCells * nVertLevelsP1);
 	std::vector<double> tmp_zTop(nCells * nVertLevels);
 	std::vector<double> tmp_zMid(nCells * nVertLevels);
-
-	// dprint("indexToCellid size %ld", indexToCellID.size());
+	
+	// dprint("indexToCellid size %ld | nC %ld, nVL %ld, nVLP1 %ld", indexToCellID.size(), nCells, nVertLevels, nVertLevelsP1);
 
 	// iterate through each cell and copy data to tmp
 	int ctr;
@@ -52,18 +52,24 @@ void mpas_io::move_data_to_regular_position(){
 		// 		fprintf(stderr, "%f ", zMid[i]);
 		// }
 
-		tmp_velocityX.insert(tmp_velocityX.begin() + idx * nVertLevels, velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels);
-		tmp_velocityY.insert(tmp_velocityY.begin() + idx * nVertLevels, velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels);
-		tmp_velocityZ.insert(tmp_velocityZ.begin() + idx * nVertLevels, velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels);
-		tmp_vertVelocityTop.insert(tmp_vertVelocityTop.begin()+idx*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1);
-		tmp_zTop.insert(tmp_zTop.begin() + idx * nVertLevels, zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels);
-		tmp_zMid.insert(tmp_zMid.begin() + idx * nVertLevels, zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels);
+		// tmp_velocityX.insert(tmp_velocityX.begin() + idx * nVertLevels, velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels);
+		// tmp_velocityY.insert(tmp_velocityY.begin() + idx * nVertLevels, velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels);
+		// tmp_velocityZ.insert(tmp_velocityZ.begin() + idx * nVertLevels, velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels);
+		// tmp_vertVelocityTop.insert(tmp_vertVelocityTop.begin()+idx*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1);
+		// tmp_zTop.insert(tmp_zTop.begin() + idx * nVertLevels, zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels);
+		// tmp_zMid.insert(tmp_zMid.begin() + idx * nVertLevels, zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels);
 
+		std::copy(velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityX.begin() + idx * nVertLevels);
+		std::copy(velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityY.begin() + idx * nVertLevels);
+		std::copy(velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityZ.begin() + idx * nVertLevels);
+		std::copy(vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1, tmp_vertVelocityTop.begin()+idx*nVertLevelsP1);
+		std::copy(zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels, tmp_zTop.begin() + idx * nVertLevels);
+		std::copy(zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels, tmp_zMid.begin() + idx * nVertLevels);
 
 		ctr++;
 	}
 
-
+	// dprint("later indexToCellid size %ld", indexToCellID.size());
 
 	// move the tmp to mpas1
 	velocityX = std::move(tmp_velocityX);
@@ -257,7 +263,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 
 
 	int ncid;
-	int dimid_cells, dimid_edges, dimid_vertices, dimid_vertLevels;
+	int dimid_cells, dimid_edges, dimid_vertices, dimid_vertLevels, dimid_vertLevelsP1;
 	int varid_latVertex, varid_lonVertex, varid_xVertex, varid_yVertex, varid_zVertex,
 	    varid_latCell, varid_lonCell, varid_xCell, varid_yCell, varid_zCell,
 	    varid_verticesOnEdge, varid_cellsOnVertex,
@@ -275,11 +281,13 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	PNC_SAFE_CALL( ncmpi_inq_dimid(ncid, "nEdges", &dimid_edges) );
 	PNC_SAFE_CALL( ncmpi_inq_dimid(ncid, "nVertices", &dimid_vertices) );
 	PNC_SAFE_CALL( ncmpi_inq_dimid(ncid, "nVertLevels", &dimid_vertLevels) );
+	PNC_SAFE_CALL( ncmpi_inq_dimid(ncid, "nVertLevelsP1", &dimid_vertLevelsP1) );
 
 	PNC_SAFE_CALL( ncmpi_inq_dimlen(ncid, dimid_cells, &nCells) );
 	PNC_SAFE_CALL( ncmpi_inq_dimlen(ncid, dimid_edges, &nEdges) );
 	PNC_SAFE_CALL( ncmpi_inq_dimlen(ncid, dimid_vertices, &nVertices) );
 	PNC_SAFE_CALL( ncmpi_inq_dimlen(ncid, dimid_vertLevels, &nVertLevels) );
+	PNC_SAFE_CALL( ncmpi_inq_dimlen(ncid, dimid_vertLevelsP1, &nVertLevelsP1) );
 
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "indexToVertexID", &varid_indexToVertexID) );
 	PNC_SAFE_CALL( ncmpi_inq_varid(ncid, "indexToCellID", &varid_indexToCellID) );
@@ -367,6 +375,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// for (int i=0; i<nEdges; i++)
 	//   fprintf(stderr, "%d, %d\n", verticesOnEdge[i*2], verticesOnEdge[i*2+1]);
 
+
 	const MPI_Offset start_vertex_cell[2] = {0, 0}, size_vertex_cell[2] = {nVertices, 3};
 	cellsOnVertex.resize(nVertices*3);
 
@@ -393,7 +402,6 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zTop, start_time_cell_level, size_time_cell_level, &zTop[0]) );
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_zMid, start_time_cell_level, size_time_cell_level, &zMid[0]) );
-
 	vertVelocityTop.resize(nCells * nVertLevelsP1);
 	const MPI_Offset start_time_cell_levelP1[3] = {time_id, 0, 0}, size_time_cell_levelP1[3] = {1, nCells, nVertLevelsP1};
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_vertVelocityTop, start_time_cell_level, size_time_cell_level, &vertVelocityTop[0]) );
@@ -410,25 +418,20 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_uVertexVelocity, start_time_vertex_level, size_time_vertex_level, &uVertexVelocity[0]) );
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_vVertexVelocity, start_time_vertex_level, size_time_vertex_level, &vVertexVelocity[0]) );
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_wVertexVelocity, start_time_vertex_level, size_time_vertex_level, &wVertexVelocity[0]) );
-
 	cellsOnCell.resize(nCells * maxEdges);
 	nEdgesOnCell.resize(nCells);
 	verticesOnCell.resize(nCells * maxEdges);
 	const MPI_Offset start_cell_maxedges[2] = {0,0}, size_cell_maxedges[2] = {nCells, maxEdges};
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_cellsOnCell, start_cell_maxedges, size_cell_maxedges, &cellsOnCell[0]) );
-
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_nEdgesOnCell, start_cells, size_cells, &nEdgesOnCell[0]) );
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_verticesOnCell, start_cell_maxedges, size_cell_maxedges, &verticesOnCell[0]) );
-
-
+	
 	boundaryVertex.resize(nVertices * nVertLevels);
 	const MPI_Offset start_nvert_nvertlevel[2] = {0, 0}, size_nvert_nvertlevel[2] = {nVertices, nVertLevels};
 	PNC_SAFE_CALL( ncmpi_get_vara_int_all(ncid, varid_boundaryVertex, start_nvert_nvertlevel, size_nvert_nvertlevel, &boundaryVertex[0]) );
 
 
-
 	PNC_SAFE_CALL( ncmpi_close(ncid));
-
 
 	cell_nbrs = read_csv(fname_graph, ' ');
 
@@ -445,6 +448,8 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// dprint("uVertVel %f %f %f", uVertexVelocity[vid*nVertLevels], uVertexVelocity[vid*nVertLevels+1], uVertexVelocity[vid*nVertLevels+2]);
 	// int cell = 43382;
 	// dprint("cell coords %f %f %f", xCell[cell], yCell[cell], zCell[cell]);
+
+	dprint("nVertL %ld, nCells %ld, nVertLP1 %ld", nVertLevels, nCells, nVertLevelsP1);
 
 
 }

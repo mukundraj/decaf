@@ -52,7 +52,7 @@ public:
 	std::vector<std::vector<int>> cell_nbrs;
 	std::vector<int> currentBlock;
 
-	std::vector<int> debugarray;
+	// std::vector<int> debugarray;
 
 
 	mpas_io();

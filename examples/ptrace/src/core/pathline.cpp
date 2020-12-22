@@ -64,7 +64,7 @@ bool pathline::compute_streamlines(block *b, mpas_io &mpas1, const diy::Master::
 	double particleVelocityVert;
 
 	size_t nCellsnVertLeves = b->nCells * b->nVertLevels;
-	// dprint("b->particles.size() %ld, nCells %ld", b->particles.size(), b->nCells);
+	dprint("b->particles.size() %ld, nCells %ld", b->particles.size(), b->nCells);
 	int iCell_prev;
 
 	std::vector<EndPt> particles_finished;
@@ -229,8 +229,7 @@ bool pathline::compute_streamlines(block *b, mpas_io &mpas1, const diy::Master::
 						if (finished==true){
 							// if (prediction==true)
 
-							mpas1.debugarray[b->particles[pid].pid/1000] += cur_nsteps;
-							// mpas1.debugarray[0]++;
+							// mpas1.debugarray[b->particles[pid].pid/1000] += cur_nsteps;
 							// dprint("finned %d in %d, pred %d | %d", b->particles[pid].pid, cur_nsteps, prediction, mpas1.debugarray[0]);
 							break;
 						}

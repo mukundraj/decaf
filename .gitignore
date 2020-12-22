@@ -11,3 +11,4 @@ build/
 python/*.pyc
 install/
 examples/direct/
+python/*

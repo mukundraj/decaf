@@ -1227,7 +1227,7 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 	PNC_SAFE_CALL(ncmpi_close(ncid));	
 
 	// dprint("seed_rate %d currentBlock size %ld", seed_rate, currentBlock.size());
-
+	int outside = 0;
 	for (size_t i=0; i<xParticle.size(); i++){
 		// if (world.rank() == currentBlock[i] && (init==47475 || init==108510 || init==27354|| init==195284)){//&& init == 37){
 		// if (world.rank() == currentBlock[i] && (init==27354|| init==222458 || init == 190419))
@@ -1254,11 +1254,13 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 				dprint("Init %d cellid %d, rank %d, currentBlock[i] %d (%f %f %f)", init, p.glCellIdx, world.rank(), currentBlock[i], p[0], p[1], p[2]);
 			}
 		
+		}else{
+			outside ++;
 		}
 		init++;	
 
 	}
-	dprint("particle %ld, rank %d", particles.size(), world.rank());
+	dprint("particle %ld, rank %d, outside %d", particles.size(), world.rank(), outside);
 
 
 }
