@@ -638,6 +638,10 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					if (world.rank()==0)
 					dprint("Finished prediction .............. ");
 
+					world.barrier();
+        			double time2 = MPI_Wtime(); 
+					time_predrun = time2 - time1;
+
 					block* block_ptr;
 					master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 						block_ptr = std::move(b);
@@ -756,6 +760,10 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 					dprint("Finished second advection .............. ");
 
+					world.barrier();
+        			double time3 = MPI_Wtime(); 
+					time_final = time3 - time2;
+
 			}else{ // no prediction case starts
 
 					if (world.rank()==0)
@@ -781,6 +789,10 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 					if (world.rank()==0)
 						dprint("ended baseline advection..");
+
+					world.barrier();
+        			double time3 = MPI_Wtime(); 
+					time_final = time3 - time1;
 
 			} // no prediction case ends
 
@@ -932,8 +944,11 @@ int main(int argc, char* argv[])
 	size_t nsteps_global=0;
 	diy::mpi::reduce(world, nsteps, nsteps_global, 0, std::plus<size_t>());
 
+	size_t maxsteps_global=0;
+    diy::mpi::reduce(world, nsteps, maxsteps_global, 0, diy::mpi::maximum<size_t>());
+
 	if (world.rank()==0)
-		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, bal , %f, time_tot , %f, time_readdata, %f, worldsize, %d, minsteps, %ld, dtSim %f, dtParticle, %f,\n", prediction, nsteps_global, 0, double(0.0), double(0.0), time_readdata, world.size(), 0, dtSim, dtParticle);
+		fprintf(stderr, "predd , %d, nsteps_global , %ld, maxsteps_global , %ld, time_predrun , %f, time_final, %f, time_readdata, %f, worldsize, %d, minsteps, %ld, dtSim %f, dtParticle, %f,\n", prediction, nsteps_global, maxsteps_global, time_predrun, time_final, time_readdata, world.size(), 0, dtSim, dtParticle);
 
 
 	// MPI_Finalize(); // called by diy for consumers
