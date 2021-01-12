@@ -59,3 +59,9 @@ set_target_properties       (adapter          PROPERTIES SUFFIX ".so")
 
 # # Don't add a 'lib' prefix to the shared library
 # set_target_properties       (mod_adapter       PROPERTIES PREFIX "")
+
+
+# LIC generation
+add_executable( prep_dense_seeds src/prep_dense_seeds.cpp src/io/particles_io.cpp src/utils/misc.cpp)
+target_include_directories(prep_dense_seeds PRIVATE src/io src/utils)
+target_link_libraries(prep_dense_seeds ${NetCDF_LIBRARIES} ${PNETCDF_LIBRARY} )
