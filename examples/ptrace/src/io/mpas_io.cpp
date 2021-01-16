@@ -415,6 +415,18 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	vVertexVelocity.resize(nVertices*nVertLevels);
 	wVertexVelocity.resize(nVertices*nVertLevels);
 
+	uVertexVelocities.resize(2); 
+	uVertexVelocities[0].resize(nVertices*nVertLevels);	
+	uVertexVelocities[1].resize(nVertices*nVertLevels);	
+
+	vVertexVelocities.resize(2);
+	vVertexVelocities[0].resize(nVertices*nVertLevels);	
+	vVertexVelocities[1].resize(nVertices*nVertLevels);	
+
+	wVertexVelocities.resize(2);
+	wVertexVelocities[0].resize(nVertices*nVertLevels);	
+	wVertexVelocities[1].resize(nVertices*nVertLevels);	
+
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_uVertexVelocity, start_time_vertex_level, size_time_vertex_level, &uVertexVelocity[0]) );
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_vVertexVelocity, start_time_vertex_level, size_time_vertex_level, &vVertexVelocity[0]) );
 	// PNC_SAFE_CALL( ncmpi_get_vara_double_all(ncid, varid_wVertexVelocity, start_time_vertex_level, size_time_vertex_level, &wVertexVelocity[0]) );

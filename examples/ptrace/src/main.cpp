@@ -33,6 +33,7 @@ using namespace std;
 
 #include "utils/opts.h"
 #include "core/pathline.h"
+#include "core/streamline.h"
 
 typedef diy::RegularContinuousLink RCLink;
 typedef diy::ContinuousBounds Bounds;
@@ -97,6 +98,9 @@ void enqueue_ghost_cells_to_nbrs(std::vector<int> &local_gcIds, block *b, const 
 	
 	
 	std::map<diy::BlockID, std::vector<EndPt>>   outgoing_cells;
+
+	// check if called in a rebalancing epoch
+	// if (framenum % rebal_interval == 0)
 	
 	dprint("local_gcIds %ld", local_gcIds.size());
 	for (size_t i = 1; i < local_gcIds.size(); i++)
@@ -126,6 +130,9 @@ void enqueue_ghost_cells_to_nbrs(std::vector<int> &local_gcIds, block *b, const 
 	
 		
 	}
+
+	// else if not in rebalance interval
+	// loop over keys of map<int, std::vector<int>> epoch_nbrs and cread a endpt for each nbr
 
 	dprint("before enqueing");
 
@@ -187,7 +194,7 @@ bool trace_particles(block *b,
                      const diy::Master::ProxyWithLink &cp,
                      const diy::Assigner &assigner, 
 					 const int max_steps, 
-					 pathline &pl, 
+					 flowline *fl, 
 					 int prediction, 
 					 size_t &nsteps, 
 					 std::vector<EndPt>& particles_hold, 
@@ -197,7 +204,7 @@ bool trace_particles(block *b,
 				// b->particles_store.clear();
 				deq_incoming_iexchange(b, cp);
 				// dprint("calling trace_particles");
-				val = pl.compute_streamlines(b, mpas1, cp, assigner, prediction, nsteps, particles_hold, skip_rate);
+				val = fl->compute_flow(b, mpas1, cp, assigner, prediction, nsteps, particles_hold, skip_rate);
 
 				return val;
 
@@ -483,8 +490,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 						// }
 
 						// compute vertex velocities
-						pathline pl(*b, dtSim, dtParticle);
-						pl.cell_to_vertex_interpolation(b, local_gcIds);
+						streamline sl(*b, dtSim, dtParticle);
+						sl.cell_to_vertex_interpolation(b, local_gcIds);
 
 						
 					});
@@ -527,7 +534,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					// prediction advection using iexchange
 					master.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
 
-						pathline pl(*b, dtSim, dtParticle);
+						streamline sl(*b, dtSim, dtParticle);
 
 						// update_velocity_vectors: both timesteps point to same vectors
 						// pl.set_velocity_vectors(*b);
@@ -545,7 +552,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 												icp,
 												assigner,
 												max_steps,
-												pl,
+												&sl,
 												true,
 												nsteps,
 												particles_hold, 
@@ -731,7 +738,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 					master_final.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
 
-						pathline pl(*b, dtSim, dtParticle);
+						streamline sl(*b, dtSim, dtParticle);
 
 						// update_velocity_vectors: both timesteps point to same vectors
 						// pl.set_velocity_vectors(*b);
@@ -749,7 +756,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 												icp,
 												assigner,
 												max_steps,
-												pl,
+												&sl,
 												false,
 												nsteps,
 												particles_hold, 
@@ -771,14 +778,14 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 					// no prediction advection using iexchange
 					master.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
 
-						pathline pl(*b, dtSim, dtParticle);
+						streamline sl(*b, dtSim, dtParticle);
 
 						bool val = trace_particles(b,
 													mpas1,
 												icp,
 												assigner,
 												max_steps,
-												pl,
+												&sl,
 												false,
 												nsteps,
 												particles_hold, 
@@ -869,6 +876,7 @@ int main(int argc, char* argv[])
 	int seed_rate = 100;
 	int skip_rate = 10;
 	bool prediction = true;
+	int rebal_interval = 2;
 
 
 	// define the workflow

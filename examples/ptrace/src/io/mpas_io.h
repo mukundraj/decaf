@@ -38,6 +38,9 @@ public:
 	std::vector<double> uVertexVelocity, vVertexVelocity, wVertexVelocity;
 	std::vector<double> zTop, zMid, vertVelocityTop;
 
+	// Integrated field for streamlines and pathlines
+	std::vector<std::vector<double>> uVertexVelocities, vVertexVelocities, wVertexVelocities;
+
     // Global values
     size_t nVertices_global;
 
