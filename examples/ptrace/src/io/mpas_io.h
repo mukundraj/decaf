@@ -26,6 +26,7 @@ public:
     std::vector<int> verticesOnEdge, cellsOnVertex, verticesOnCell;
 
     std::vector<double> velocityX, velocityY, velocityZ;
+	std::vector<std::vector<double>> velocitiesX, velocitiesY, velocitiesZ;
     // std::vector<std::vector<double>> velocityXv, velocityYv, velocityZv;
     // std::vector<std::vector<double>> zTop, zMid, vertVelocityTop;
     std::vector<double> zTopVertex, zTopVertexNorm;
@@ -70,7 +71,7 @@ public:
 	Nabo::NNSearchD*  nns_cells;
 	void create_cells_kdtree();
 
-	void move_data_to_regular_position();
+	void move_data_to_regular_position(int gid);
 
 };
 

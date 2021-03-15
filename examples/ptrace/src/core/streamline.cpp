@@ -22,7 +22,7 @@ streamline::streamline(mpas_io &mpas1, double dtSim_in, double dtParticle_in)
 }
 
 
-bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold, int skip_rate){
+bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold, int skip_rate){
 
 	radius = b->radius;
 
@@ -45,12 +45,13 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 	double particleVelocityVert;
 
 	size_t nCellsnVertLeves = b->nCells * b->nVertLevels;
-	dprint("b->particles.size() %ld, nCells %ld", b->particles.size(), b->nCells);
+	// dprint("b->particles.size() %ld, nCells %ld", b->particles.size(), b->nCells);
 	int iCell_prev;
 
 	std::vector<EndPt> particles_finished;
 
-		for (int pid = 0; pid < b->particles.size(); pid++)
+	
+	for (int pid = 0; pid < b->particles.size(); pid++)
 		{
 			// create segment
 			Segment seg;
@@ -123,6 +124,9 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 						int timeInterpOrder = 1;
 						double timeCoeff[1];
 						timeCoeff[0] = 1;
+
+					
+
 						velocity_time_interpolation(timeInterpOrder,
 											timeCoeff,
 											iCell,
@@ -130,11 +134,12 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 											nCellVertices,
 											zSubStep,
 											b,
-											mpas1,
 											xSubStep,
 											particleVelocity,
 											particleVelocityVert);
-						// dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
+											
+						// if (cp.gid()==0 &&b->particles[pid].nsteps%1000==0)
+						// 	dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
 						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 						kCoeff.col(subStep + 1) = dt * particleVelocity;
 						kCoeffVert(subStep + 1) = dt * particleVelocityVert;
@@ -163,7 +168,8 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 
 						// dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
 
-						// dprint("pp (%d %d) %f %f %f | %f", iCell, iLevel, particlePosition[0], particlePosition[1], particlePosition[2], zLevelParticle);
+						if (cp.gid()==0 &&b->particles[pid].nsteps%100==0)
+							dprint("pp (%d %d) %f %f %f | %f| %d| pid %d, gid %d", iCell, iLevel, particlePosition[0], particlePosition[1], particlePosition[2], zLevelParticle, b->particles[pid].nsteps, b->particles[pid].pid, b->gid);
 
 						// update segment
 						Pt p;
@@ -223,7 +229,7 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 						// check if inside local domain and handle
 						int round = 1;
 						// dprint("iCell %d", iCell);
-						if (!in_local_domain(b , p, iCell, round)){
+						if (!in_local_domain(b , p, iCell, round, b->particles[pid].pid)){
 				            if (b->particles[pid].pid==1000)
 							dprint("jumped!! in %d, cur_nsteps %d, pid %d", b->gid, cur_nsteps, b->particles[pid].pid);
 							break;
@@ -235,7 +241,7 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 
 			// if unfinished, enqueue 
 			if (finished == false){
-				int dest_gid = b->gcIdToGid[iCell+1];
+				int dest_gid = b->gcIdToGid_init[iCell+1];
 
 					int dest_proc = assigner.rank(dest_gid);
 					diy::BlockID dest_block = {dest_gid, dest_proc};
@@ -292,4 +298,22 @@ bool streamline::compute_flow(block *b, mpas_io &mpas1, const diy::Master::Proxy
 		
 	
 
+}
+
+bool streamline::in_local_domain (const block *b, const Pt& p, int &iCell, int round, int pid){
+
+	int nCellVertices;
+	Array3d xSubStep;
+	xSubStep(0) = p.coords[0];
+	xSubStep(1) = p.coords[1];
+	xSubStep(2) = p.coords[2];
+	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
+	// dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
+	
+	
+	// if (b->in_partition[iCell] == round)
+	if (b->gcIdToGid_init[iCell+1] == b->gid)
+		return true;
+	else
+		return false;
 }

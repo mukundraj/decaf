@@ -24,10 +24,14 @@ mpas_io::mpas_io(){
 		radius = 6371229.;
 		cradius = radius;
 
+		velocitiesX.resize(2);
+		velocitiesY.resize(2);
+		velocitiesZ.resize(2);
+
 
 }
 
-void mpas_io::move_data_to_regular_position(){
+void mpas_io::move_data_to_regular_position(int gid){
 
 	// create buffers
 	std::vector<double> tmp_velocityX(nCells * nVertLevels);
@@ -39,29 +43,35 @@ void mpas_io::move_data_to_regular_position(){
 	
 	// dprint("indexToCellid size %ld | nC %ld, nVL %ld, nVLP1 %ld", indexToCellID.size(), nCells, nVertLevels, nVertLevelsP1);
 
-	// iterate through each cell and copy data to tmp
-	int ctr;
-	int flag =0;
-	for (auto id: indexToCellID){
-		int idx = id - 1;
+	// dprint("velocitiesY[1] %ld, nCells %ld nVertLevels %ld indexToCellID %ld", velocitiesY[1].size(), nCells, nVertLevels, indexToCellID.size());
 
-		// if (id == 5471)	{
+	// iterate through each cell and copy data to tmp
+	int ctr = 0;
+	int flag = 0;
+	for (auto gcId: indexToCellID){
+
+		// local_gcIds_init.push_back(id);
+
+		int idx = gcId - 1;
+
+		
+
+		// if (id == 2630)	{
 		// 	dprint("found id %d , ctr %d", id, ctr);
 		// 	flag =1;
 		// 	for (size_t i=ctr*nVertLevels; i<ctr*nVertLevels+nVertLevels; i++)
-		// 		fprintf(stderr, "%f ", zMid[i]);
+		// 		fprintf(stderr, "%f ", velocityX[i]);
 		// }
 
-		// tmp_velocityX.insert(tmp_velocityX.begin() + idx * nVertLevels, velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels);
-		// tmp_velocityY.insert(tmp_velocityY.begin() + idx * nVertLevels, velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels);
-		// tmp_velocityZ.insert(tmp_velocityZ.begin() + idx * nVertLevels, velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels);
-		// tmp_vertVelocityTop.insert(tmp_vertVelocityTop.begin()+idx*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1);
-		// tmp_zTop.insert(tmp_zTop.begin() + idx * nVertLevels, zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels);
-		// tmp_zMid.insert(tmp_zMid.begin() + idx * nVertLevels, zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels);
+		if (gcId == 2630){
+			dprint("2630 found in %d", gid);
+		}
 
-		std::copy(velocityX.begin()+ ctr*nVertLevels, velocityX.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityX.begin() + idx * nVertLevels);
-		std::copy(velocityY.begin()+ ctr*nVertLevels, velocityY.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityY.begin() + idx * nVertLevels);
-		std::copy(velocityZ.begin()+ ctr*nVertLevels, velocityZ.begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityZ.begin() + idx * nVertLevels);
+		
+
+		std::copy(velocitiesX[1].begin()+ ctr*nVertLevels, velocitiesX[1].begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityX.begin() + idx * nVertLevels);
+		std::copy(velocitiesY[1].begin()+ ctr*nVertLevels, velocitiesY[1].begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityY.begin() + idx * nVertLevels);
+		std::copy(velocitiesZ[1].begin()+ ctr*nVertLevels, velocitiesZ[1].begin()+ ctr*nVertLevels + nVertLevels, tmp_velocityZ.begin() + idx * nVertLevels);
 		std::copy(vertVelocityTop.begin()+ ctr*nVertLevelsP1, vertVelocityTop.begin()+ ctr*nVertLevelsP1 + nVertLevelsP1, tmp_vertVelocityTop.begin()+idx*nVertLevelsP1);
 		std::copy(zTop.begin()+ ctr*nVertLevels, zTop.begin()+ ctr*nVertLevels + nVertLevels, tmp_zTop.begin() + idx * nVertLevels);
 		std::copy(zMid.begin()+ ctr*nVertLevels, zMid.begin()+ ctr*nVertLevels + nVertLevels, tmp_zMid.begin() + idx * nVertLevels);
@@ -72,17 +82,32 @@ void mpas_io::move_data_to_regular_position(){
 	// dprint("later indexToCellid size %ld", indexToCellID.size());
 
 	// move the tmp to mpas1
-	velocityX = std::move(tmp_velocityX);
-	velocityY = std::move(tmp_velocityY);
-	velocityZ = std::move(tmp_velocityZ);
+	velocitiesX[1] = std::move(tmp_velocityX);
+	velocitiesY[1] = std::move(tmp_velocityY);
+	velocitiesZ[1] = std::move(tmp_velocityZ);
 	vertVelocityTop = std::move(tmp_vertVelocityTop);
 	zTop = std::move (tmp_zTop);
 	zMid = std::move(tmp_zMid);
+
+	if (velocitiesX[0].size()==0){
+		velocitiesX[0].resize(velocitiesX[1].size());
+		velocitiesY[0].resize(velocitiesY[1].size());
+		velocitiesZ[0].resize(velocitiesZ[1].size());
+	}
+
+	// ctr = 2630 - 1;
+	// if (gid==0)
+	// 	for (size_t i=ctr*nVertLevels; i<ctr*nVertLevels + nVertLevels; i++)
+	// 		fprintf(stderr, "%f ", velocitiesX[1][i]);
+	
 
 		
 }
 
 void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int, std::vector<double> &data_dbl){
+
+
+	
 
 	switch(data_id){
 
@@ -148,17 +173,23 @@ void mpas_io::update_data(int data_id, int frame_no, std::vector<int> &data_int,
 						break;
 						
 
-				case 11:	//fprintf(stderr, "Recv velocityXv %d, fno %d\n", data_id, frame_no);
-						velocityX = std::move(data_dbl);
+				case 11: 	//fprintf(stderr, "Recv velocityXv %d, fno %d\n", data_id, frame_no);
+						velocitiesX[0] = std::move(velocitiesX[1]);
+						velocitiesX[1] = std::move(data_dbl);
+						
 						// dprint("first velocityXv %f", velocityXv[frame_no%2][0]);
 						break;
 
 				case 12:	//fprintf(stderr, "Recv velocityYv %d, fno %d\n", data_id, frame_no);
-						velocityY = std::move(data_dbl);
+						velocitiesY[0] = std::move(velocitiesY[1]);
+						velocitiesY[1] = std::move(data_dbl);
+						
 						break;
 
 				case 13:	//fprintf(stderr, "Recv velocityZv %d,\n", data_id);
-						velocityZ = std::move(data_dbl);
+						velocitiesZ[0] = std::move(velocitiesZ[1]);
+						velocitiesZ[1] = std::move(data_dbl);
+						
 						break;
 
 				case 14://	fprintf(stderr, "Recv nEdgesOnCell %d,\n", data_id);
@@ -461,7 +492,7 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// int cell = 43382;
 	// dprint("cell coords %f %f %f", xCell[cell], yCell[cell], zCell[cell]);
 
-	dprint("nVertL %ld, nCells %ld, nVertLP1 %ld", nVertLevels, nCells, nVertLevelsP1);
+	// dprint("nVertL %ld, nCells %ld, nVertLP1 %ld", nVertLevels, nCells, nVertLevelsP1);
 
 
 }

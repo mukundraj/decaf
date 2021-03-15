@@ -47,7 +47,9 @@ public:
 
 	
 
-	bool compute_flow(block *b, mpas_io &mpas1, const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold, int skip_rate);
+	bool compute_flow(block *b,  const diy::Master::ProxyWithLink &cp, const diy::Assigner &assigner, int prediction, size_t &nsteps, std::vector<EndPt> &particles_hold, int skip_rate);
+
+	bool in_local_domain (const block *b, const Pt& p, int &iCell, int round, int pid);
 
 };
 

@@ -9,22 +9,112 @@
 #include <utility>
 #include <pnetcdf.h>
 
-// still checks based on cellIdx (ass opposed to cellId)
-void block::init_partitions(){
-	in_partition.resize(nCells);
+using namespace Eigen;
 
-	for (size_t i=1; i<gcIdToGid.size(); i++){
-		// if (currentBlock[i]==gid){
-		if (gcIdToGid[i]==gid){
-			in_partition[i-1] = 1;
-			in_partition_set.insert(i);
+// still checks based on cellIdx (ass opposed to cellId)
+// void block::init_partitions(){
+// 	in_partition.resize(nCells);
+
+// 	for (size_t i=1; i<gcIdToGid.size(); i++){
+// 		// if (currentBlock[i]==gid){
+// 		if (gcIdToGid[i]==gid){
+// 			in_partition[i-1] = 1;
+// 		}
+// 	}
+// 	// in_partition[0] = 1;
+// 	int size = std::count(in_partition.begin(), in_partition.end(), 1);
+// 	// dprint("current block size %d", size);
+// }
+
+
+
+void block::position_data_before_prediction(diy::mpi::communicator &world, int gid, int framenum, std::vector<EndPt>& particles_hold){
+
+	// move data to regular position if first frame
+	if (framenum==1){
+		// dprint("indexToCellID %ld gcIdToGid_init %ld, gid %d || %d %d %d %d", indexToCellID.size(), gcIdToGid_init.size(), gid, indexToCellID[0], indexToCellID[1], indexToCellID[2], indexToCellID[3]);
+		local_gcIds_init.clear();
+		std::fill(gcIdToGid_local.begin(), gcIdToGid_local.end(), 0);
+		for (auto id: indexToCellID){
+			local_gcIds_init.push_back(id);
+			gcIdToGid_local[id] = gid;
 		}
+		std::fill(gcIdToGid_init.begin(), gcIdToGid_init.end(), 0);
+		diy::mpi::all_reduce(world, gcIdToGid_local, gcIdToGid_init, std::plus<int>());
 	}
-	// in_partition[0] = 1;
-	int size = std::count(in_partition.begin(), in_partition.end(), 1);
-	// dprint("current block size %d", size);
+	
+	move_data_to_regular_position(gid); // using b->indexToCellID
+
+	// dprint("frame %d velocities[0] %ld, velocities[1] %ld, velocities[2] %ld, %ld %ld %ld", framenum, velocitiesX[0].size(), velocitiesY[0].size(), velocitiesZ[0].size(), zTop.size(), zMid.size(), vertVelocityTop.size());
+			
+	
+
+	// move data to preadvection position in particles_hold
+	std::fill(gcIdToGid_local.begin(), gcIdToGid_local.end(), 0);
+	move_data_to_preadvection_position(local_gcIds_init, gcIdToGid_local, particles_hold);
 }
 
+
+
+void block::move_data_to_preadvection_position(std::vector<int> &local_gcIds, std::vector<int> &gcIdToGid_local, std::vector<EndPt>& particles_hold){
+// move data to particles hold using local_gcIds
+
+	// dprint("gid %ld", gid);
+
+	// dprint("indexToCellID %ld, xCell %ld, velocitiesX[0] %ld velocitiesX[1] %ld", indexToCellID.size(), xCell.size(), velocitiesX[0].size(), velocitiesX[1].size());
+
+	int idx = 0;
+	for (auto i: indexToCellID){
+		EndPt cell_cen;
+		int cell_idx = i-1;
+		cell_cen[0] = xCell[cell_idx];
+		cell_cen[1] = yCell[cell_idx];
+		cell_cen[2] = zCell[cell_idx];
+		cell_cen.predonly = 2; // indicates this is the cell center point
+		cell_cen.glCellIdx = cell_idx;
+		cell_cen.source_gid = gid;
+		gcIdToGid_local[i] = gid; // needs to be filled before reduction and ghost exchange
+
+		// copy cell velocities from mpas1 to cell_cen (mpas1 -> cell_cen)
+		copy_cell_data_to_endpt(cell_cen, cell_cen.glCellIdx);
+		
+		// // copy cell_cen to b for prediction advection, not needed now
+		// copy_endpt_to_cell_data(cell_cen);
+
+		// push cell_cen data to particles_hold for partitioning after prediction
+		particles_hold.push_back(cell_cen);
+
+		if (i == 5550){
+			dprint("inserting 5550, gid %d", gid);
+		}
+
+		idx++;
+	}
+
+	
+}
+
+void block::position_seeds_before_prediction(int pred_percent, std::vector<EndPt>& particles_hold){
+
+	std::random_device rd;
+	std::mt19937 g(6);
+	std::shuffle(particles.begin(), particles.end(), g);
+
+	size_t pred_size = static_cast<size_t>(floor((float(pred_percent) / 100) * particles.size()));
+
+	particles_hold.insert(std::end(particles_hold), std::begin(particles), std::end(particles));
+	particles.resize(pred_size);
+
+	for (EndPt &ep : particles_hold)
+	{ // updating p{xyz} to cell{xyz} for load based sorting
+		ep.pt_hold = ep.pt;
+		ep[0] = xCell[ep.glCellIdx];
+		ep[1] = yCell[ep.glCellIdx];
+		ep[2] = zCell[ep.glCellIdx];
+		ep.predonly = 0;
+	}
+
+}
 
 void block::create_links_from_gcIdToGid(const std::string &fname_graph, std::set<int> &links){
 
@@ -57,6 +147,51 @@ void block::create_links_from_gcIdToGid(const std::string &fname_graph, std::set
 
 }
 
+void block::copy_cell_data_to_endpt(EndPt &cell_cen, int idx){
+	
+	cell_cen.cell_data.resize(9);
+
+	cell_cen.cell_data[0].clear();
+	cell_cen.cell_data[0].insert(cell_cen.cell_data[0].end(), velocitiesX[0].begin()+idx*nVertLevels, velocitiesX[0].begin()+idx*nVertLevels + nVertLevels);
+	cell_cen.cell_data[1].clear();
+	cell_cen.cell_data[1].insert(cell_cen.cell_data[1].end(), velocitiesY[0].begin()+idx*nVertLevels, velocitiesY[0].begin()+idx*nVertLevels + nVertLevels);
+	cell_cen.cell_data[2].clear();
+	cell_cen.cell_data[2].insert(cell_cen.cell_data[2].end(), velocitiesZ[0].begin()+idx*nVertLevels, velocitiesZ[0].begin()+idx*nVertLevels + nVertLevels);
+	
+	cell_cen.cell_data[3].clear();
+	cell_cen.cell_data[3].insert(cell_cen.cell_data[3].end(), vertVelocityTop.begin()+idx*nVertLevelsP1, vertVelocityTop.begin()+idx*nVertLevelsP1 + nVertLevelsP1);
+	cell_cen.cell_data[4].clear();
+	cell_cen.cell_data[4].insert(cell_cen.cell_data[4].end(), zTop.begin()+idx*nVertLevels, zTop.begin()+idx*nVertLevels + nVertLevels);
+	cell_cen.cell_data[5].clear();
+	cell_cen.cell_data[5].insert(cell_cen.cell_data[5].end(), zMid.begin()+idx*nVertLevels, zMid.begin()+idx*nVertLevels + nVertLevels);
+
+	cell_cen.cell_data[6].clear();
+	cell_cen.cell_data[6].insert(cell_cen.cell_data[6].end(), velocitiesX[1].begin()+idx*nVertLevels, velocitiesX[1].begin()+idx*nVertLevels + nVertLevels);
+	cell_cen.cell_data[7].clear();
+	cell_cen.cell_data[7].insert(cell_cen.cell_data[7].end(), velocitiesY[1].begin()+idx*nVertLevels, velocitiesY[1].begin()+idx*nVertLevels + nVertLevels);
+	cell_cen.cell_data[8].clear();
+	cell_cen.cell_data[8].insert(cell_cen.cell_data[8].end(), velocitiesZ[1].begin()+idx*nVertLevels, velocitiesZ[1].begin()+idx*nVertLevels + nVertLevels);
+
+	// if (idx==5470)
+	// 	dprint("gid %d copying to cell_cen %f %f, %ld", b.gid, cell_cen.cell_data[5][0], b.zMid[idx*b.nVertLevels], b.nVertLevels);
+
+}
+
+void block::copy_endpt_to_cell_data(EndPt &cell_cen){
+
+	int idx = cell_cen.glCellIdx;
+	
+	std::copy(cell_cen.cell_data[0].begin(), cell_cen.cell_data[0].end(), velocitiesX[0].begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[1].begin(), cell_cen.cell_data[1].end(), velocitiesY[0].begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[2].begin(), cell_cen.cell_data[2].end(), velocitiesZ[0].begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[3].begin(), cell_cen.cell_data[3].end(), vertVelocityTop.begin()+idx*nVertLevelsP1);
+	std::copy(cell_cen.cell_data[4].begin(), cell_cen.cell_data[4].end(), zTop.begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[5].begin(), cell_cen.cell_data[5].end(), zMid.begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[6].begin(), cell_cen.cell_data[6].end(), velocitiesX[1].begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[7].begin(), cell_cen.cell_data[7].end(), velocitiesY[1].begin()+idx*nVertLevels);
+	std::copy(cell_cen.cell_data[8].begin(), cell_cen.cell_data[8].end(), velocitiesZ[1].begin()+idx*nVertLevels);
+	
+}
 
 // creates the cellsOnCell from file (as opposed to from the incoming data)
 void block::create_links(const std::string &fname_graph, const std::string &fname_graphpart, std::set<int> &links){
@@ -102,66 +237,126 @@ void block::create_links(const std::string &fname_graph, const std::string &fnam
 std::vector<Halo> block::get_halo_info()
 {
 
-	std::map<int, std::pair<std::vector<int>, std::vector<int>>> cells_verts;
+	// std::map<int, std::pair<std::vector<int>, std::vector<int>>> cells_verts;
 
-	// iterate over cells
-	for (size_t i = 0; i < indexToCellID.size(); i++)
-	{
+	// // iterate over cells
+	// for (size_t i = 0; i < indexToCellID.size(); i++)
+	// {
 
-		int cellID = indexToCellID[i];
-		// iterate over cell neighbors
-		for (int j = i * maxEdges; j < (i + 1) * maxEdges; j++)
-		{
+	// 	int cellID = indexToCellID[i];
+	// 	// iterate over cell neighbors
+	// 	for (int j = i * maxEdges; j < (i + 1) * maxEdges; j++)
+	// 	{
 
-			int nbr_cellID = cellsOnCell[j];
-			// make sure nbr_cell is valid
-			if (nbr_cellID != 0)
-			{
-				int nbr_gid = gcIdToGid[nbr_cellID - 1];
-				// if neighbor gid != current gid add then add cell id request to nbr_gid
-				if (nbr_gid != gid)
-				{
-					cells_verts[nbr_gid].first.push_back(nbr_cellID);
-				}
-			}
-		}
+	// 		int nbr_cellID = cellsOnCell[j];
+	// 		// make sure nbr_cell is valid
+	// 		if (nbr_cellID != 0)
+	// 		{
+	// 			int nbr_gid = gcIdToGid[nbr_cellID - 1];
+	// 			// if neighbor gid != current gid add then add cell id request to nbr_gid
+	// 			if (nbr_gid != gid)
+	// 			{
+	// 				cells_verts[nbr_gid].first.push_back(nbr_cellID);
+	// 			}
+	// 		}
+	// 	}
 
-		// iterate over vertices on cell
-		for (size_t j = i * maxEdges; j < (i + 1) * maxEdges; j++)
-		{
+	// 	// iterate over vertices on cell
+	// 	for (size_t j = i * maxEdges; j < (i + 1) * maxEdges; j++)
+	// 	{
 
-			int nbr_vertexID = verticesOnCell[j];
+	// 		int nbr_vertexID = verticesOnCell[j];
 
-			// make sure nbr_vertex is valid
-			if (nbr_vertexID != 0)
-			{
-				int nbr_gid = gVIdxToGid[nbr_vertexID - 1];
+	// 		// make sure nbr_vertex is valid
+	// 		if (nbr_vertexID != 0)
+	// 		{
+	// 			int nbr_gid = gVIdxToGid[nbr_vertexID - 1];
 
-				// if neighbor gid != current gid add then add vertex id request to nbr_gid
-				if (nbr_gid != gid)
-				{
-					cells_verts[nbr_gid].second.push_back(nbr_vertexID);
-				}
-			}
-		}
-	}
+	// 			// if neighbor gid != current gid add then add vertex id request to nbr_gid
+	// 			if (nbr_gid != gid)
+	// 			{
+	// 				cells_verts[nbr_gid].second.push_back(nbr_vertexID);
+	// 			}
+	// 		}
+	// 	}
+	// }
 
-	// iterate over map and populate halos
+	// // iterate over map and populate halos
 
 	std::vector<Halo> halos;
 
-	std::for_each(cells_verts.begin(), cells_verts.end(),
-				  [&](std::pair<int, std::pair<std::vector<int>, std::vector<int>>> element) {
-					  Halo h;
-					  h.src_gid = gid;
-					  h.dest_gid = element.first;
-					  h.glCellIDs = std::move(element.second.first);
-					  h.glVertexIDs = std::move(element.second.second);
+	// std::for_each(cells_verts.begin(), cells_verts.end(),
+	// 			  [&](std::pair<int, std::pair<std::vector<int>, std::vector<int>>> element) {
+	// 				  Halo h;
+	// 				  h.src_gid = gid;
+	// 				  h.dest_gid = element.first;
+	// 				  h.glCellIDs = std::move(element.second.first);
+	// 				  h.glVertexIDs = std::move(element.second.second);
 
-					  halos.push_back(h);
-				  });
+	// 				  halos.push_back(h);
+	// 			  });
 
 	return halos;
+}
+
+void block::position_data_and_seeds_after_balance(diy::mpi::communicator &world, std::vector<EndPt> &particles_hold){
+
+	particles_hold.clear();
+	local_gcIds.clear();
+	std::fill(gcIdToGid_local.begin(), gcIdToGid_local.end(), 0);
+	// std::fill(in_partition.begin(), in_partition.end(), 0);
+
+	// dprint("particles %ld, rank %d, gcIdToGid_local %ld", particles.size(), world.rank(), gcIdToGid_local.size());
+	// dprint("particles %d", particles.size());
+	for (size_t i=0; i<particles.size(); i++){
+
+		if (particles[i].predonly==2){
+			
+			
+			int cellIdx = particles[i].glCellIdx;
+			gcIdToGid_local[cellIdx + 1] = gid;
+			local_gcIds.push_back(cellIdx + 1);
+
+				// dprint("found in %d", world.rank());
+
+			// copy and position cell data at cellIdx positions
+			std::copy(particles[i].cell_data[0].begin(), particles[i].cell_data[0].end(), velocitiesX[0].begin() + cellIdx * nVertLevels);
+			std::copy(particles[i].cell_data[1].begin(), particles[i].cell_data[1].end(), velocitiesY[0].begin() + cellIdx * nVertLevels);
+			std::copy(particles[i].cell_data[2].begin(), particles[i].cell_data[2].end(), velocitiesZ[0].begin() + cellIdx * nVertLevels);
+
+			std::copy(particles[i].cell_data[3].begin(), particles[i].cell_data[3].end(), vertVelocityTop.begin() + cellIdx * nVertLevelsP1);
+			std::copy(particles[i].cell_data[4].begin(), particles[i].cell_data[4].end(), zTop.begin() + cellIdx * nVertLevels);
+			std::copy(particles[i].cell_data[5].begin(), particles[i].cell_data[5].end(), zTop.begin() + cellIdx * nVertLevels);
+
+			std::copy(particles[i].cell_data[6].begin(), particles[i].cell_data[6].end(), velocitiesX[1].begin() + cellIdx * nVertLevels);
+			std::copy(particles[i].cell_data[7].begin(), particles[i].cell_data[7].end(), velocitiesY[1].begin() + cellIdx * nVertLevels);
+			std::copy(particles[i].cell_data[8].begin(), particles[i].cell_data[8].end(), velocitiesZ[1].begin() + cellIdx * nVertLevels);
+
+
+		}else if(particles[i].predonly==0){
+
+			EndPt &pt = particles[i];
+			pt[0] = pt.pt_hold.coords[0];
+			pt[1] = pt.pt_hold.coords[1];
+			pt[2] = pt.pt_hold.coords[2];
+
+			particles_hold.push_back(pt);
+
+		}
+
+		
+	}
+
+
+	std::fill(gcIdToGid.begin(), gcIdToGid.end(), 0);
+	diy::mpi::all_reduce(world, gcIdToGid_local, gcIdToGid, std::plus<int>());
+
+
+
+	particles = std::move(particles_hold);
+	
+
+
 }
 
 void block::process_halo_req(Halo &h, int framenum)
@@ -332,55 +527,6 @@ void block::update_halo_dynamic(Halo &h, int framenum)
 	}
 }
 
-// void block::create_links_mpas(const std::string &fname_graphinfo, std::set<int> &links, diy::mpi::communicator &world)
-// {
-
-// 	std::vector<std::vector<int>> partn_ids = read_csv(fname_graphinfo.c_str());
-
-// 	for (size_t i = 0; i < partn_ids.size(); i++)
-// 		gcIdToGid.push_back(partn_ids[i][0]);
-
-// 	for (size_t i = 0; i < partn_ids.size(); i++)
-// 	{
-// 		if (gid == partn_ids[i][0])
-// 		{
-// 			for (int j = cellIndex[i + 1] * maxEdges; j < (cellIndex[i + 1] + 1) * maxEdges; j++)
-// 			{
-// 				if (cellsOnCell[j] != 0)
-// 				{
-// 					if (partn_ids[cellsOnCell[j] - 1][0] != gid)
-// 					{
-// 						links.insert(partn_ids[cellsOnCell[j] - 1][0]);
-// 					}
-// 				}
-// 			}
-// 		}
-// 	}
-
-// 	// dprint("links size %ld", links.size());
-
-// 	/* now populate gVIdxtoGid */
-
-// 	// get nVertices_global
-// 	diy::mpi::all_reduce(world, indexToVertexID.size(), nVertices_global, std::plus<size_t>());
-// 	gVIdxToGid.resize(nVertices_global);
-
-// 	// all_gather the gids
-// 	std::vector<int> all_gids;
-// 	diy::mpi::all_gather(world, gid, all_gids);
-
-// 	// all gather indexToVertexID
-// 	std::vector<std::vector<int>> all_indexToVertexID;
-// 	diy::mpi::all_gather(world, indexToVertexID, all_indexToVertexID);
-// 	for (size_t i = 0; i < all_indexToVertexID.size(); i++)
-// 	{
-// 		for (size_t j = 0; j < all_indexToVertexID[i].size(); j++)
-// 		{
-
-// 			gVIdxToGid[all_indexToVertexID[i][j] - 1] = all_gids[i];
-// 		}
-// 	}
-// }
 
 // create a new particle file which includes a glCellIdx (global cell index) field
 void block::generate_new_particle_file()
@@ -605,7 +751,6 @@ void block::init_seeds_mpas(std::string &fname_particles, int framenum, int rank
 			p.zLevelParticle = zLevelParticle[i];
 			p.glCellIdx = glCellIdx[i];
 			particles.push_back(p);
-		// dprint("Init cellid %d", p.glCellIdx);
 		}
 		init++;
 
@@ -1250,8 +1395,8 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 				p.zLevelParticle = zLevelParticle[i];
 				p.glCellIdx = glCellIdx[i];
 				particles.push_back(p);
-				if (p.glCellIdx == 1000)
-				dprint("Init %d cellid %d, rank %d, currentBlock[i] %d (%f %f %f)", init, p.glCellIdx, world.rank(), currentBlock[i], p[0], p[1], p[2]);
+				if (p.pid == 5550)
+					dprint("Init %d cellid %d, rank %d, currentBlock[i] %d (%f %f %f)", init, p.glCellIdx, world.rank(), currentBlock[i], p[0], p[1], p[2]);
 			}
 		
 		}else{
@@ -1260,7 +1405,20 @@ void block::init_seeds_particles(diy::mpi::communicator& world, std::string &fna
 		init++;	
 
 	}
-	dprint("particle %ld, rank %d, outside %d", particles.size(), world.rank(), outside);
+	// dprint("particle %ld, rank %d, outside %d", particles.size(), world.rank(), outside);
 
+
+}
+
+
+void block::update_link(const set<int> &links, const diy::Assigner &assigner, diy::Link* link){
+
+	for (int lgid: links){
+		// dprint("rank %d links to %ld", world.rank(), i);
+		diy::BlockID  neighbor;
+		neighbor.gid  = lgid;                     // gid of the neighbor block
+		neighbor.proc = assigner.rank(neighbor.gid); // process of the neighbor block
+		link->add_neighbor(neighbor);
+	}
 
 }

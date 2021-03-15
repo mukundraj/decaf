@@ -8,31 +8,39 @@
 using namespace Eigen;
 
 
-void flowline::cell_to_vertex_interpolation(block *b, std::vector<int> &local_gcIds){
+void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
+
+	
+	// // swap the t0 and t1, t0 will be overwritten here
+	// std::vector<double> tmp;
+	// tmp = std::move(b->uVertexVelocities[0]);
+	// b->uVertexVelocities[0] = std::move(b->uVertexVelocities[1]);
+	// b->uVertexVelocities[1] = std::move(tmp);
+	// tmp = std::move(b->vVertexVelocities[0]);
+	// b->vVertexVelocities[0] = std::move(b->vVertexVelocities[1]);
+	// b->vVertexVelocities[1] = std::move(tmp);
+	// tmp = std::move(b->wVertexVelocities[0]);
+	// b->wVertexVelocities[0] = std::move(b->wVertexVelocities[1]);
+	// b->wVertexVelocities[1] = std::move(tmp);
+
+	std::vector<int> &local_gcids = (pred_frame==true) ? b->local_gcIds_init : b->local_gcIds; 
 
 
-	// swap the t0 and t1, t0 will be overwritten here
-	std::vector<double> tmp;
-	tmp = std::move(b->uVertexVelocities[0]);
 	b->uVertexVelocities[0] = std::move(b->uVertexVelocities[1]);
-	b->uVertexVelocities[1] = std::move(tmp);
-	tmp = std::move(b->vVertexVelocities[0]);
 	b->vVertexVelocities[0] = std::move(b->vVertexVelocities[1]);
-	b->vVertexVelocities[1] = std::move(tmp);
-	tmp = std::move(b->wVertexVelocities[0]);
 	b->wVertexVelocities[0] = std::move(b->wVertexVelocities[1]);
-	b->wVertexVelocities[1] = std::move(tmp);
 
-
+	b->uVertexVelocities[1].resize(b->uVertexVelocities[0].size());
+	b->vVertexVelocities[1].resize(b->vVertexVelocities[0].size());
+	b->wVertexVelocities[1].resize(b->wVertexVelocities[0].size());
 
 	std::unordered_set<int> completed_verts;
 
 	// dprint("verticesOnCell size %ld", b->verticesOnCell.size());
 
-	
 
-	for (size_t i=0; i<local_gcIds.size(); i++){
-		int cellIdx = local_gcIds[i]-1;
+	for (size_t i=0; i<local_gcids.size(); i++){
+		int cellIdx = local_gcids[i]-1;
 
 		
 
@@ -42,35 +50,41 @@ void flowline::cell_to_vertex_interpolation(block *b, std::vector<int> &local_gc
 
 			// if (cellIdx == 5470)
 			// 		dprint("FOUND 5470, vid %d | %d | size %ld", vid, completed_verts.find(vid)==completed_verts.end(), completed_verts.size());
+
+			if (cellIdx == 2630-1){
+				dprint("FOUND 2630, aVertex %d, b->maxEdges %ld", vid, b->maxEdges);
+				// flag = 1;
+			}
 			
 			// if vertId in completed_verts, skip remaining in this iteration
 			if (completed_verts.find(vid)==completed_verts.end()){
 				completed_verts.insert(vid);
 				int aVertex = vid - 1;
 				int flag=0;
-				// if (cellIdx == 5470){
-				// 	dprint("FOUND 5470, aVertex %d", aVertex);
-				// 	flag = 1;
-				// }
-					
-				
+
+				int flagg = 0;
+				if (vid==870 || vid== 869 || vid==12465 || vid==4989 || vid==4994 || vid==12466){
+					dprint("vid %d", vid);
+					flagg = vid;
+				}
+
 				const int vertexDegree = 3;
 				
 				// get pointVertex: pos of cells surrounding vertex
 				double pointVertex[vertexDegree][3];
 				for (int aCell=0; aCell < vertexDegree; aCell++){
 
-					int cellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
+					int nbrCellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
 					// pointVertex[0][aCell] = b->xCell[b->cellsOnVertex[cellIdx ]];
 					// pointVertex[1][aCell] = b->yCell[b->cellsOnVertex[cellIdx ]];
 					// pointVertex[2][aCell] = b->zCell[b->cellsOnVertex[cellIdx ]];
-					pointVertex[aCell][0] = b->xCell[cellIdx ];
-					pointVertex[aCell][1] = b->yCell[cellIdx ];
-					pointVertex[aCell][2] = b->zCell[cellIdx ];
+					pointVertex[aCell][0] = b->xCell[nbrCellIdx ];
+					pointVertex[aCell][1] = b->yCell[nbrCellIdx ];
+					pointVertex[aCell][2] = b->zCell[nbrCellIdx ];
 
-					// if (flag==1)
+					// if (flagg>0)
 					// {
-					// 	dprint("cellIdx %d, (%f %f %f) %f", cellIdx, b->xCell[cellIdx ], b->yCell[cellIdx ], b->zCell[cellIdx ], pointVertex[0][0]);
+					// 	dprint("vid %d, nbrCellIdx %d, (%f %f %f) %f", vid, nbrCellIdx, b->xCell[nbrCellIdx ], b->yCell[nbrCellIdx ], b->zCell[nbrCellIdx ], pointVertex[0][0]);
 					// }
 
 				}
@@ -84,11 +98,14 @@ void flowline::cell_to_vertex_interpolation(block *b, std::vector<int> &local_gc
 				// get interpolation constants (lambda)
 				double lambda[vertexDegree];
 				double areaB[vertexDegree];
-				wachspress_coordinates(*b, vertexDegree, pointVertex, pointInterp, areaB, &lambda[0], flag);
+				wachspress_coordinates(b->radius, vertexDegree, pointVertex, pointInterp, areaB, &lambda[0], flag);
 
 				// if (b->gid == 0)
 				// if (flag == 1)
 				// dprint("lambda %f %f %f, pointInterp %f %f %f | (%f %f %f) (%f %f %f) (%f %f %f) ", lambda[0], lambda[1], lambda[2], pointInterp(0), pointInterp(1), pointInterp(2), pointVertex[0][0], pointVertex[1][0], pointVertex[2][0], pointVertex[0][1], pointVertex[1][1], pointVertex[2][1], pointVertex[0][2], pointVertex[1][2], pointVertex[2][2]);
+
+				// aif (b->gid==0)
+				// 	dprint("b->velocitiesX[1][2629] %f", b->velocitiesX[1][2629*b->nVertLevels]);
 				
 				// interpolate and store
 				for (int aLevel=0; aLevel<b->nVertLevels; aLevel++){
@@ -98,27 +115,37 @@ void flowline::cell_to_vertex_interpolation(block *b, std::vector<int> &local_gc
 						double ucCell[vertexDegree][3];
 
 						for(int aCell=0; aCell < vertexDegree; aCell++){
-							int cellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
-							ucCell[aCell][0] = b->velocityX[cellIdx * b->nVertLevels + aLevel];
-							ucCell[aCell][1] = b->velocityY[cellIdx * b->nVertLevels + aLevel];
-							ucCell[aCell][2] = b->velocityZ[cellIdx * b->nVertLevels + aLevel];
-							// if (cellIdx == 1000){
-							// 	dprint("ucCell %f %f %f", ucCell[aCell][0], ucCell[aCell][1], ucCell[aCell][2]);
-							// }
+							int nbrCellIdx = b->cellsOnVertex[vertexDegree*aVertex + aCell] - 1;
+							ucCell[aCell][0] = b->velocitiesX[1][nbrCellIdx * b->nVertLevels + aLevel];
+							ucCell[aCell][1] = b->velocitiesY[1][nbrCellIdx * b->nVertLevels + aLevel];
+							ucCell[aCell][2] = b->velocitiesZ[1][nbrCellIdx * b->nVertLevels + aLevel];
+
+							
+							
 						}
+
+						
+						// if (flagg > 0 && aLevel == 67){
+						// 		dprint("ucCell %f %f %f, gid %d, aLevel %d", ucCell[0][0], ucCell[0][1], ucCell[0][2], b->gid, aLevel);
+						// }
+						
 
 						// b->uVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
 						// b->vVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 1, vertexDegree);
 						// b->wVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 2, vertexDegree);
 
-						b->uVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
-						b->vVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 1, vertexDegree);
-						b->wVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 2, vertexDegree);
+						b->uVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
+						b->vVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 1, vertexDegree);
+						b->wVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 2, vertexDegree);
 
 
 
 
 
+					}
+
+					if (flagg > 0 && aLevel == 67){
+								dprint("aVertex %d, b->uVertexVelocities[1][b->nVertLevels*aVertex + 67] %f %f %f", aVertex, b->uVertexVelocities[1][b->nVertLevels*aVertex + 67], b->vVertexVelocities[1][b->nVertLevels*aVertex + 67], b->wVertexVelocities[1][b->nVertLevels*aVertex + 67]);
 					}
 				}
 
@@ -190,11 +217,11 @@ void flowline::get_bounding_indices_brute_force(const int nVertLevels, const dou
 }
 
 
-Array3d flowline::particle_horizontal_interpolation(mpas_io &mpas1, const int nCellVertices, const double vertCoords[][3], const Array3d &pointInterp, const double uvCell[][3], double *areaB)
+Array3d flowline::particle_horizontal_interpolation(double radius, const int nCellVertices, const double vertCoords[][3], const Array3d &pointInterp, const double uvCell[][3], double *areaB)
 {
 
 	double lambda[nCellVertices];
-	wachspress_coordinates(mpas1, nCellVertices, vertCoords, pointInterp, areaB, &lambda[0]);
+	wachspress_coordinates(radius, nCellVertices, vertCoords, pointInterp, areaB, &lambda[0]);
 
 	// dprint("lambda (%f %f %f %f %f %f) vertCoords %f %f %f", lambda[0], lambda[1], lambda[2],lambda[3], lambda[4], lambda[5], vertCoords[0][0], vertCoords[0][1], vertCoords[0][2]);
 
@@ -210,19 +237,23 @@ Array3d flowline::particle_horizontal_interpolation(mpas_io &mpas1, const int nC
 }
 
 
-void flowline::particle_vertical_treatment(const int nCellVertices, const int *verticesOnCell, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, block *b, mpas_io &mpas1, double uvCell[][3], const int iLevel, const double zLoc, const double *zMid, const double *zTop, const double *zVertVelocityTop, double &verticalVelocityInterp)
+void flowline::particle_vertical_treatment(const int nCellVertices, const int *verticesOnCell, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, block *b, double uvCell[][3], const int iLevel, const double zLoc, const double *zMid, const double *zTop, const double *zVertVelocityTop, double &verticalVelocityInterp)
 {
 
 	// vertical treatment = passiveFloat
 
 	// dprint("here1 zMid[iLevel] %f", zMid[iLevel]);
 	// interpolate vertical velocity
-	verticalVelocityInterp = interp_vert_velocity_to_zlevel(b, mpas1, iLevel, zLoc, zTop, zVertVelocityTop);
+	verticalVelocityInterp = interp_vert_velocity_to_zlevel(b, iLevel, zLoc, zTop, zVertVelocityTop);
 
-	// dprint("here2");
+	// if(b->gid==0)
+	// 	dprint("verticesOnCell %d %d %d %d %d %d", verticesOnCell[0], verticesOnCell[1], verticesOnCell[2], verticesOnCell[3], verticesOnCell[4], verticesOnCell[5]);
+	// dprint("b->uVertexVelocities[1][870*100] %f, %f", b->uVertexVelocities[1][870*100], uVertexVelocity[870*100] );
+
+	
 
 	// interpolate the horizontal velocity based on z-levels
-	interp_nodal_vectors(b, mpas1, nCellVertices, verticesOnCell, iLevel, b->nVertLevels, zLoc, zMid, uVertexVelocity, vVertexVelocity, wVertexVelocity, uvCell);
+	interp_nodal_vectors(b,  nCellVertices, verticesOnCell, iLevel, b->nVertLevels, zLoc, zMid, uVertexVelocity, vVertexVelocity, wVertexVelocity, uvCell);
 
 	// dprint("here3");
 
@@ -233,9 +264,10 @@ void flowline::particle_vertical_treatment(const int nCellVertices, const int *v
 	}
 }
 
-void flowline::interp_nodal_vectors(block *b, mpas_io &mpas1, const int nCellVertices, const int *verticesOnCell, const int iLevel, int nVertLevels, const double phiInterp, const double *phiVals, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, double uvCell[][3])
+void flowline::interp_nodal_vectors(block *b, const int nCellVertices, const int *verticesOnCell, const int iLevel, int nVertLevels, const double phiInterp, const double *phiVals, const double *uVertexVelocity, const double *vVertexVelocity, const double *wVertexVelocity, double uvCell[][3])
 {	
-	// dprint("uVertexVelocity[0] %f", uVertexVelocity[0]);
+	// if (b->gid==0)
+	// 	dprint("uVertexVelocity[0] %f", uVertexVelocity[0]);
 	// dprint("iLevell %d, nVertLevels %d", iLevel, nVertLevels);
 	int theVertex;
 
@@ -258,9 +290,9 @@ void flowline::interp_nodal_vectors(block *b, mpas_io &mpas1, const int nCellVer
 			{	
 				theVertex = verticesOnCell[aVertex] - 1;
 				// theVertex = mpas1.vertexIndex[verticesOnCell[aVertex]];
-				uvCell[aVertex][0] = uVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
-				uvCell[aVertex][1] = vVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
-				uvCell[aVertex][2] = wVertexVelocity[theVertex * nVertLevels + nVertLevels - 1]; // nVertLevels-1 = minloc(..)
+				uvCell[aVertex][0] = uVertexVelocity[theVertex * nVertLevels + nVertLevels + 0]; // nVertLevels-1 = minloc(..)
+				uvCell[aVertex][1] = vVertexVelocity[theVertex * nVertLevels + nVertLevels + 0]; // nVertLevels-1 = minloc(..)
+				uvCell[aVertex][2] = wVertexVelocity[theVertex * nVertLevels + nVertLevels + 0]; // nVertLevels-1 = minloc(..)
 			}
 		}
 	}
@@ -268,6 +300,13 @@ void flowline::interp_nodal_vectors(block *b, mpas_io &mpas1, const int nCellVer
 	int iHigh, iLow;
 	const double eps = 1e-14;
 	double alpha = 0;
+
+	// if (b->gid==0){
+	// 	dprint("uvCell %f %f %f", uvCell[0][0], uvCell[0][0], uvCell[0][0]);
+	// }
+
+	if (b->gid==0)
+			dprint("b->uVertexVelocities[1][869*100] %f %f", b->uVertexVelocities[1][869*100], uVertexVelocity[869*100]);
 	
 
 	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f", iLevel, iHigh, iLow, phiInterp);
@@ -324,6 +363,7 @@ void flowline::interp_nodal_vectors(block *b, mpas_io &mpas1, const int nCellVer
 		
 	}
 	// if (verticesOnCell[0] - 1==6464)
+	// if (b->gid == 0)
 	// 	dprint("uvCell %f %f %f %f %f %f, IH %d IL %d", uvCell[0][0], uvCell[1][0], uvCell[2][0], uvCell[3][0], uvCell[4][0], uvCell[5][0], iHigh, iLow);
 
 	// theVertex = verticesOnCell[0] - 1;
@@ -333,7 +373,7 @@ void flowline::interp_nodal_vectors(block *b, mpas_io &mpas1, const int nCellVer
 	// 	dprint("uvCell %f %f %f", uvCell[0][0], uvCell[1][0], uvCell[2][0]);
 }
 
-double flowline::interp_vert_velocity_to_zlevel(block *b, mpas_io &mpas1, const int iLevel, const double zSubStep, const double *zTop, const double *vertVelocityTop)
+double flowline::interp_vert_velocity_to_zlevel(block *b, const int iLevel, const double zSubStep, const double *zTop, const double *vertVelocityTop)
 {
 
 	double alpha = 0, interp_vert_velocity_to_zlevel;
@@ -408,7 +448,6 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 										   const int nCellVertices,
 										   const double zSubStep,
 										   block *b,
-										   mpas_io &mpas1, // includes verticesOnCell, boundaryVertex, zMid, zTop, xVertex, yVertex, zVertex
 										   const Eigen::Array3d &xSubStep,
 										   Eigen::Array3d &particleVelocity,
 										   double &particleVelocityVert)
@@ -419,7 +458,8 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 	double verticalVelocityInterp;
 	double areaB[nCellVertices];
 
-	
+	// if (b->gid==0)
+	// 	dprint("iCell %d, iLevel %d", iCell, iLevel);
 
 	// get horizontal vertex locations
 
@@ -445,6 +485,11 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 	particleVelocity << 0,0,0;
 	particleVelocityVert = 0;
 
+	// if (b->gid==0)
+	// 	dprint("iCell %d", iCell);
+
+		
+
 	// general interpolation for the velocity field
 	for (int aTimeLevel = 0; aTimeLevel < timeInterpOrder; aTimeLevel++)
 	{
@@ -455,7 +500,10 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 		// 	dprint("VONCELL %d %d %d", b->verticesOnCell[iCell * b->maxEdges], b->verticesOnCell[iCell * b->maxEdges +1], b->verticesOnCell[iCell * b->maxEdges +2]);
 
 		// dprint("testval %f", mpas1.zMid[iCell * b->nVertLevels + iLevel]);
-		particle_vertical_treatment(nCellVertices, &b->verticesOnCell[iCell * b->maxEdges], &b->uVertexVelocity[0], &b->vVertexVelocity[0], &b->wVertexVelocity[0], b, mpas1, uvCell, iLevel, zSubStep, &b->zMid[iCell * b->nVertLevels], &b->zTop[iCell * b->nVertLevels], &b->vertVelocityTop[iCell * b->nVertLevelsP1], verticalVelocityInterp);
+
+		int invertedTimeLevel = (aTimeLevel == 0) ? 1 : 0;
+
+		particle_vertical_treatment(nCellVertices, &b->verticesOnCell[iCell * b->maxEdges], &b->uVertexVelocities[invertedTimeLevel][0], &b->vVertexVelocities[invertedTimeLevel][0], &b->wVertexVelocities[invertedTimeLevel][0], b, uvCell, iLevel, zSubStep, &b->zMid[iCell * b->nVertLevels], &b->zTop[iCell * b->nVertLevels], &b->vertVelocityTop[iCell * b->nVertLevelsP1], verticalVelocityInterp);
 
 		// dprint("b->uVertexVelocity size %ld, uVertVels %f %f %f %f %f %f", b->uVertexVelocity.size(), b->uVertexVelocity[b->nVertLevels*4894], 
 		// b->uVertexVelocity[b->nVertLevels*14825], 
@@ -464,9 +512,9 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 		// b->uVertexVelocity[b->nVertLevels*13860], 
 		// b->uVertexVelocity[b->nVertLevels*4895]);
 
-		particleVelocityVert = particleVelocityVert + timeCoeff[aTimeLevel] * verticalVelocityInterp;
+		particleVelocityVert = particleVelocityVert + timeCoeff[invertedTimeLevel] * verticalVelocityInterp;
 
-		particleVelocity = particleVelocity + timeCoeff[aTimeLevel] * particle_horizontal_interpolation(mpas1, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
+		particleVelocity = particleVelocity + timeCoeff[invertedTimeLevel] * particle_horizontal_interpolation(b->radius, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
 	}
 
 	// if (b->verticesOnCell[(iCell)*b->maxEdges + 0] - 1==6464){
@@ -476,6 +524,7 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 
 	// dprint("Exiting"); exit(0);
 }
+
 
 
 double flowline::wachspress_interpolate(const double *lambda, const double phi[][3], const int idx, const int nCellVertices)
@@ -489,10 +538,10 @@ double flowline::wachspress_interpolate(const double *lambda, const double phi[]
 	return sum;
 }
 
-void flowline::wachspress_coordinates(const mpas_io &mpas1, const int nVertices, const double vertCoords[][3], const Array3d &pointInterp, double *areaB, double *wachspress, int flag)
+void flowline::wachspress_coordinates(double radius, const int nVertices, const double vertCoords[][3], const Array3d &pointInterp, double *areaB, double *wachspress, int flag)
 {	
 	if (flag==1)
-	dprint("in wc");
+		dprint("in wc");
 	double areaA[nVertices], wach[nVertices];
 
 	double p[3] = {pointInterp(0), pointInterp(1), pointInterp(2)};
@@ -507,8 +556,8 @@ void flowline::wachspress_coordinates(const mpas_io &mpas1, const int nVertices,
 		double b[3] = {vertCoords[i0][0], vertCoords[i0][1], vertCoords[i0][2]};
 		double c[3] = {vertCoords[ip1][0], vertCoords[ip1][1], vertCoords[ip1][2]};
 
-		areaB[i] = triangle_signed_area(a, b, c, mpas1.radius, flag);
-		areaA[i] = triangle_signed_area(p, b, c, mpas1.radius, flag);
+		areaB[i] = triangle_signed_area(a, b, c, radius, flag);
+		areaA[i] = triangle_signed_area(p, b, c, radius, flag);
 		// if (flag==1)
 		// 	dprint("areaA[i] %.20g areaB[i] %.20g, a (%f %f %f), b (%f %f %f) c(%f %f %f) p(%f %f %f), im1 %d i0 %d ip1 %d", areaA[i], areaB[i], a[0], a[1], a[2], b[0], b[1], b[2], c[0], c[1], c[2], p[0], p[1], p[2], im1, i0, ip1);
 		// dprint("area %.20g", areaB[i]);
@@ -561,19 +610,3 @@ bool flowline::in_global_domain(const Pt& p, double cx, double cy, double cz){
 		return true;
 }
 
-bool flowline::in_local_domain (const block *b, const Pt& p, int &iCell, int round){
-
-	int nCellVertices;
-	Array3d xSubStep;
-	xSubStep(0) = p.coords[0];
-	xSubStep(1) = p.coords[1];
-	xSubStep(2) = p.coords[2];
-	get_validated_cell_id(*b, xSubStep, iCell, nCellVertices);
-	// dprint("bgid %d iCell %d b->in_partition[iCell] %d round %d  b->gcIdxToGid[iCell] %d", b->gid, iCell, b->in_partition[iCell], round,  b->gcIdxToGid[iCell]);
-	
-	// if (b->gcIdxToGid[iCell] == b->gid)
-	if (b->in_partition[iCell] == round)
-		return true;
-	else
-		return false;
-}
