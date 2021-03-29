@@ -123,6 +123,10 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 											xSubStep,
 											particleVelocity,
 											particleVelocityVert);
+
+						// if (b->particles[pid].pid==3710)
+						// 	dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
+
 						// dprint("vel %d %d| %f %f %f", iCell, iLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2));
 						//!!!!!!!!!! FORM INTEGRATION WEIGHTS kj !!!!!!!!!!
 						kCoeff.col(subStep + 1) = dt * particleVelocity;
@@ -189,7 +193,8 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 						// if (b->particles[pid].pid==5550)
 						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
 
-						
+						// if (b->particles[pid].pid==3710)
+						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);	
 
 						// check if particle inside global domain and handle
 						if (!in_global_domain(p, b->xCell[iCell], b->yCell[iCell], b->zCell[iCell] ) || cur_nsteps >= nSteps)
@@ -293,7 +298,7 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 		// b->particle_store.clear();
 		// dprint("finishedf a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		b->particles.clear(); // clearing particles if no particles came in
-		dprint("b->particles_continuing %ld, gid %d", b->particles_continuing.size(), cp.gid());
+		// dprint("b->particles_continuing %ld, gid %d", b->particles_continuing.size(), cp.gid());
 		b->particles = std::move(b->particles_continuing); // to be continued advecting in the next epoch
 		
 		return true;

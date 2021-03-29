@@ -51,8 +51,8 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 			// if (cellIdx == 5470)
 			// 		dprint("FOUND 5470, vid %d | %d | size %ld", vid, completed_verts.find(vid)==completed_verts.end(), completed_verts.size());
 
-			if (cellIdx == 2630-1){
-				dprint("FOUND 2630, aVertex %d, b->maxEdges %ld", vid, b->maxEdges);
+			if (cellIdx == 3711-1){
+				dprint("FOUND cid 3711, aVertex %d, b->maxEdges %ld, b->gid %d", vid, b->maxEdges, b->gid);
 				// flag = 1;
 			}
 			
@@ -63,7 +63,8 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 				int flag=0;
 
 				int flagg = 0;
-				if (vid==870 || vid== 869 || vid==12465 || vid==4989 || vid==4994 || vid==12466){
+				// if (vid==870 || vid== 869 || vid==12465 || vid==4989 || vid==4994 || vid==12466){
+				if (vid==2028 || vid== 2027 || vid==13619 || vid==9256 || vid==9261 || vid==13620){
 					dprint("vid %d", vid);
 					flagg = vid;
 				}
@@ -82,10 +83,10 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 					pointVertex[aCell][1] = b->yCell[nbrCellIdx ];
 					pointVertex[aCell][2] = b->zCell[nbrCellIdx ];
 
-					// if (flagg>0)
-					// {
-					// 	dprint("vid %d, nbrCellIdx %d, (%f %f %f) %f", vid, nbrCellIdx, b->xCell[nbrCellIdx ], b->yCell[nbrCellIdx ], b->zCell[nbrCellIdx ], pointVertex[0][0]);
-					// }
+					if (flagg>0)
+					{
+						dprint("vid %d, nbrCellIdx %d, (%f %f %f) %f", vid, nbrCellIdx, b->xCell[nbrCellIdx ], b->yCell[nbrCellIdx ], b->zCell[nbrCellIdx ], pointVertex[0][0]);
+					}
 
 				}
 
@@ -112,6 +113,7 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 					if (b->boundaryVertex[b->nVertLevels*aVertex + aLevel] < 1){
 						
 						// get cell center velocities
+						double ucCell0[vertexDegree][3];	
 						double ucCell[vertexDegree][3];
 
 						for(int aCell=0; aCell < vertexDegree; aCell++){
@@ -120,14 +122,18 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 							ucCell[aCell][1] = b->velocitiesY[1][nbrCellIdx * b->nVertLevels + aLevel];
 							ucCell[aCell][2] = b->velocitiesZ[1][nbrCellIdx * b->nVertLevels + aLevel];
 
+							ucCell0[aCell][0] = b->velocitiesX[0][nbrCellIdx * b->nVertLevels + aLevel];
+							ucCell0[aCell][1] = b->velocitiesY[0][nbrCellIdx * b->nVertLevels + aLevel];
+							ucCell0[aCell][2] = b->velocitiesZ[0][nbrCellIdx * b->nVertLevels + aLevel];
+
 							
 							
 						}
 
 						
-						// if (flagg > 0 && aLevel == 67){
-						// 		dprint("ucCell %f %f %f, gid %d, aLevel %d", ucCell[0][0], ucCell[0][1], ucCell[0][2], b->gid, aLevel);
-						// }
+						if (flagg > 0 && aLevel == 67){
+								dprint("ucCell %f %f %f, gid %d, aLevel %d", ucCell[0][0], ucCell[0][1], ucCell[0][2], b->gid, aLevel);
+						}
 						
 
 						// b->uVertexVelocity[b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
@@ -137,6 +143,10 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 						b->uVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 0, vertexDegree);
 						b->vVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 1, vertexDegree);
 						b->wVertexVelocities[1][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell, 2, vertexDegree);
+
+						b->uVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell0, 0, vertexDegree);
+						b->vVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell0, 1, vertexDegree);
+						b->wVertexVelocities[0][b->nVertLevels*aVertex + aLevel] = wachspress_interpolate(lambda, ucCell0, 2, vertexDegree);
 
 
 
@@ -305,8 +315,8 @@ void flowline::interp_nodal_vectors(block *b, const int nCellVertices, const int
 	// 	dprint("uvCell %f %f %f", uvCell[0][0], uvCell[0][0], uvCell[0][0]);
 	// }
 
-	if (b->gid==0)
-			dprint("b->uVertexVelocities[1][869*100] %f %f", b->uVertexVelocities[1][869*100], uVertexVelocity[869*100]);
+	// if (b->gid==0)
+	// 		dprint("b->uVertexVelocities[1][869*100] %f %f", b->uVertexVelocities[1][869*100], uVertexVelocity[869*100]);
 	
 
 	// dprint("iLevel %d, iHigh %d, iLow %d, phiInterp %f", iLevel, iHigh, iLow, phiInterp);
@@ -348,7 +358,7 @@ void flowline::interp_nodal_vectors(block *b, const int nCellVertices, const int
 		int theVertex4 = verticesOnCell[3] - 1;	
 		int theVertex5 = verticesOnCell[4] - 1;	
 		int theVertex6 = verticesOnCell[5] - 1;	
-		if (theVertex==6464){
+		if (theVertex==869){
 			// dprint(" uVertexVel (%f %f), (%f %f), (%f %f), (%f %f), (%f %f), (%f %f)",  
 			// uVertexVelocity[theVertex * nVertLevels + iHigh], uVertexVelocity[theVertex * nVertLevels + iLow],
 			// uVertexVelocity[theVertex2 * nVertLevels + iHigh], uVertexVelocity[theVertex2 * nVertLevels + iLow],
@@ -370,6 +380,7 @@ void flowline::interp_nodal_vectors(block *b, const int nCellVertices, const int
 	// int theVertex2 = verticesOnCell[1] - 1;
 	// int theVertex3 = verticesOnCell[2] - 1;
 	// if (theVertex==6464)
+	// if (flag==1)
 	// 	dprint("uvCell %f %f %f", uvCell[0][0], uvCell[1][0], uvCell[2][0]);
 }
 
@@ -515,7 +526,13 @@ void flowline::velocity_time_interpolation(const int timeInterpOrder,
 		particleVelocityVert = particleVelocityVert + timeCoeff[invertedTimeLevel] * verticalVelocityInterp;
 
 		particleVelocity = particleVelocity + timeCoeff[invertedTimeLevel] * particle_horizontal_interpolation(b->radius, nCellVertices, vertCoords, xSubStep, uvCell, areaB);
+		// if (b->gid==0)
+		// 	dprint("uvCell %f %f %f | %d| %f %f %f | timeCoeff[invertedTimeLevel] %f", uvCell[0][0], uvCell[1][0], uvCell[2][0], aTimeLevel, particleVelocity(0), particleVelocity(1), particleVelocity(2), timeCoeff[invertedTimeLevel]);
+
+		// dprint("particleVelocity %f %f %f", particleVelocity(0), particleVelocity(1), particleVelocity(2));
+		
 	}
+	
 
 	// if (b->verticesOnCell[(iCell)*b->maxEdges + 0] - 1==6464){
 	// 	dprint("iCell %d | vel %f %f %f | %f", iCell, particleVelocity(0), particleVelocity(1), particleVelocity(2), particleVelocityVert);

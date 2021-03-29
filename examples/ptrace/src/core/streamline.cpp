@@ -71,8 +71,8 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 
 			bool finished = false;
 
-			if (b->particles[pid].pid==1000)
-							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f),zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
+			// if (b->particles[pid].pid==1000)
+			// 				dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f),zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
 
 			
 			// if (b->particles[pid].pid!=5470)
@@ -122,8 +122,9 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 						// timeCoeff[1] = 1.0 - timeCoeff[0];
 
 						int timeInterpOrder = 1;
-						double timeCoeff[1];
-						timeCoeff[0] = 1;
+						double timeCoeff[2];
+						timeCoeff[0] = 0;
+						timeCoeff[1] = 1;
 
 					
 
@@ -168,8 +169,8 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 
 						// dprint(" timestep03 %d, particlePosition (%.7f %.7f %.7f), zLevelParticle %.7f", timeStep, particlePosition[0], particlePosition[1],particlePosition[2], zLevelParticle);
 
-						if (cp.gid()==0 &&b->particles[pid].nsteps%100==0)
-							dprint("pp (%d %d) %f %f %f | %f| %d| pid %d, gid %d", iCell, iLevel, particlePosition[0], particlePosition[1], particlePosition[2], zLevelParticle, b->particles[pid].nsteps, b->particles[pid].pid, b->gid);
+						// if (cp.gid()==0 &&b->particles[pid].nsteps%100==0)
+						// 	dprint("pp (%d %d) %f %f %f | %f| %d| pid %d, gid %d", iCell, iLevel, particlePosition[0], particlePosition[1], particlePosition[2], zLevelParticle, b->particles[pid].nsteps, b->particles[pid].pid, b->gid);
 
 						// update segment
 						Pt p;
@@ -203,7 +204,7 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 							break;
 						}
 
-						// if (b->particles[pid].pid==1000)
+						// if (b->particles[pid].pid==3710)
 						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
 
 						
@@ -213,7 +214,7 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 						// if (cur_nsteps >= nSteps || iCell == 31823)
 						{
 							finished = true;
-						
+							dprint("finished pid %d, cur_nsteps %d, b->gid %d, iCell %d", b->particles[pid].pid, cur_nsteps, b->gid, iCell);
 							
 						}
 
@@ -268,7 +269,7 @@ bool streamline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, co
 					}
 					if (jumped)
 					{
-						dprint("alert! jump gid %d dest_gid %d, pid %d, prev iCell %d, iCell %d", b->gid, dest_gid, b->particles[pid].pid, b->particles[pid].glCellIdx, iCell);
+						dprint("alert! jump gid %d dest_gid %d, pid %d, prev iCell %d, iCell %d, nsteps %d, links %ld", b->gid, dest_gid, b->particles[pid].pid, b->particles[pid].glCellIdx, iCell, b->particles[pid].nsteps, l->size());
 					}
 			}
 

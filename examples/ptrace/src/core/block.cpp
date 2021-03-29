@@ -84,9 +84,9 @@ void block::move_data_to_preadvection_position(std::vector<int> &local_gcIds, st
 		// push cell_cen data to particles_hold for partitioning after prediction
 		particles_hold.push_back(cell_cen);
 
-		if (i == 5550){
-			dprint("inserting 5550, gid %d", gid);
-		}
+		// if (i == 5550){
+		// 	dprint("inserting 5550, gid %d", gid);
+		// }
 
 		idx++;
 	}
@@ -933,19 +933,16 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 	// allocate starts and counts, allocate buffer, write
 	// dprint("rank %d segoffset[rank] %d", rank, seg_offsets[rank]);
 	MPI_Offset start_segsize[1] = {segcnt_offsets[rank]}, count_segsize[1] = {(long long int)segsizes_local.size()};
-	dprint("after def mode done");
 	ret = ncmpi_put_vara_int_all(ncfile, varid_segsizes, start_segsize, count_segsize, &segsizes_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
-	dprint("first int");
 	ret = ncmpi_put_vara_int_all(ncfile, varid_step, start_segsize, count_segsize, &segstep_local[0]);
 	if (ret != NC_NOERR) handle_error(ret, __LINE__);
-	dprint("second int");
 	ret = ncmpi_put_vara_int_all(ncfile, varid_seedid, start_segsize, count_segsize, &segsid_local[0]);
 	if (ret != NC_NOERR)
 		handle_error(ret, __LINE__);
 
-	dprint("here rank %d segsize %ld", rank, segments.size());
+	// dprint("here rank %d segsize %ld", rank, segments.size());
 	long long int local_offset = 0;
 	for (size_t i = 0; i < segments.size(); i++)
 	{

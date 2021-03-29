@@ -87,11 +87,11 @@ void remote_enq_data(
 
     std::map<diy::BlockID, std::vector<EndPt>>   outgoing_data;
 
-	// dprint("enqueing to sort b->local_gcIds %ld, gcIdToGid[5550] %d", b->local_gcIds.size(), b->gcIdToGid[5550]);
+	// dprint("enqueing to sort b->local_gcIds %ld, gid %d", b->local_gcIds_init.size(), cp.gid());
 
-    for (size_t i=0; i<b->local_gcIds.size(); i++){
+    for (size_t i=0; i<b->local_gcIds_init.size(); i++){
        
-	   int gcId = b->local_gcIds[i];
+	   int gcId = b->local_gcIds_init[i];
 	   if (b->gcIdToGid[gcId] != cp.gid()){
 
 			int cell_idx = gcId - 1;

@@ -63,9 +63,7 @@ void mpas_io::move_data_to_regular_position(int gid){
 		// 		fprintf(stderr, "%f ", velocityX[i]);
 		// }
 
-		if (gcId == 2630){
-			dprint("2630 found in %d", gid);
-		}
+		
 
 		
 

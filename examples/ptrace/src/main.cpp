@@ -76,6 +76,7 @@ bool trace_particles(block *b,
 					 int skip_rate){
 				bool val = true;
 
+				
 				// b->particles_store.clear();
 				deq_incoming_iexchange(b, cp);
 				// dprint("calling trace_particles");
@@ -152,14 +153,18 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 		// b->init_partitions(); // must be called after loading mpas data, after setting b->gid, and after init_seeds_partitions; populates b->in_partition with bools and in_partition_set
 
 		// read and add link
-        set<int> links;
+        // set<int> links;
         b->create_links(fname_graph, fname_graphpart, links);
 
 		b->gcIdToGid_local.resize(b->nCells + 1);
 		b->gcIdToGid.resize(b->nCells + 1);
 		b->gcIdToGid_init.resize(b->nCells + 1);
 
-		
+		// if (b->gid==12 || b->gid==14){
+			
+		// 	for (auto elem: links)
+		// 		dprint("gid %d links %d", b->gid, elem);
+		// }
 		
 
 		for (int lgid: links){
@@ -255,6 +260,7 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				
 				
 				
+				
 				// ghost exchange
 				diy::Master master_pred(world,
 					   threads,
@@ -269,7 +275,8 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				std::vector<int> gids;					 // global ids of local blocks
 				assigner.local_gids(world.rank(), gids); // get the gids of local blocks
 				diy::Link*    link = new diy::Link;  // link is this block's neighborhood
-				block_ptr->update_link(links, assigner, link);				
+				block_ptr->update_link(links, assigner, link);
+
 				master_pred.add(gids[0], block_ptr, link);
 
 				
@@ -278,10 +285,10 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				// ghost exchange
 				ghost_exchange(master_pred, assigner, true);
 
-				int ctr = 2630-1;
-				if (block_ptr->gid==0)
-					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
-						fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
+				// int ctr = 2630-1;
+				// if (block_ptr->gid==0)
+				// 	for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
+				// 		fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
 
 
 				// if (world.rank()==0)
@@ -293,13 +300,13 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				interpolate_cell_to_vertex(master_pred, true);
 				world.barrier();
 
-				ctr = 869;
-				if (block_ptr->gid==0){
-					dprint(" ");
-					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels + block_ptr->nVertLevels; i++)
-						fprintf(stderr, "%f ", block_ptr->uVertexVelocities[1][i]);
+				// ctr = 869;
+				// if (block_ptr->gid==0){
+				// 	dprint(" ");
+				// 	for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels + block_ptr->nVertLevels; i++)
+				// 		fprintf(stderr, "%f ", block_ptr->uVertexVelocities[1][i]);
 
-				}
+				// }
 			
 				// dprint("pred particles %ld, rank %d", block_ptr->particles.size(), block_ptr->gid);
 
@@ -314,12 +321,24 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				dbgmsg = "###particles before pred";
 				print_global_num_particles(dbgmsg, world, master_pred, framenum);
 
-				
+				// dprint("block_ptr->gcIdToGid[3711] %d, framenum %d", block_ptr->gcIdToGid[3711], framenum);
+				world.barrier();
+				int ctr = 3711-1;
+				if (block_ptr->gid==8){
+					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
+						fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
+
+					// dprint("b->gcIdToGid[3711] %d", block_ptr->gcIdToGid[3711]);
+				}
+
+
+
 
 				master_pred.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
 					streamline sl(*b, dtSim, dtParticle);
 
-					
+					// if (b->gid==12)
+						// dprint("gid %d icplinks %ld", b->gid, icp.link()->size());
 
 					bool val = trace_particles(b,
 												icp,
@@ -333,6 +352,8 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 
 					return val;
 				});
+
+				
 
 				dbgmsg = "###particles after pred";
 				print_global_num_particles(dbgmsg, world, master_pred, framenum);
@@ -371,20 +392,33 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 
 			}else{
 
-				// sort data based on current partition after moving latest to regular position
+				// sort data based on current partition after moving latest to regular position	
 				sort_data(master_baladv, assigner);
 
 			}
 
 			
+			// dprint("block_ptr->gcIdToGid[3711] %d, framenum %d", block_ptr->gcIdToGid[3711], framenum);
 
+			world.barrier();
+			
 			
 			if (framenum > 1){
 				if (world.rank()==0)
 					dprint("starting pathline advection frame %d", framenum);
 
 				ghost_exchange(master_baladv, assigner, false);
-				
+
+
+				int ctr = 3711-1;
+				if (block_ptr->gid==26){
+					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
+						fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
+
+					// dprint("b->gcIdToGid[3711] %d", block_ptr->gcIdToGid[3711]);
+				}
+
+				world.barrier();
 
 				// interpolate to vertex
 				interpolate_cell_to_vertex(master_baladv, false);
@@ -392,25 +426,35 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				dbgmsg = "###particles before adv";
 				print_global_num_particles(dbgmsg, world, master_baladv, framenum);	
 
-				// // pathline advection
-				// master_baladv.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
-				// 	pathline pl(*b, dtSim, dtParticle);
+				
+				
 
-				// 	bool val = trace_particles(b,
-				// 								icp,
-				// 								assigner,
-				// 								max_steps,
-				// 								&pl,
-				// 								true,
-				// 								nsteps,
-				// 								particles_hold,
-				// 								skip_rate);
+				// pathline advection
+				master_baladv.iexchange([&](block *b, const diy::Master::ProxyWithLink &icp) -> bool {
+					pathline pl(*b, dtSim, dtParticle);
 
-				// 	return val;
-				// });
+
+					bool val = trace_particles(b,
+												icp,
+												assigner,
+												max_steps,
+												&pl,
+												true,
+												nsteps,
+												particles_hold,
+												skip_rate);
+
+					return val;
+				});
 
 				dbgmsg = "###particles after adv";
 				print_global_num_particles(dbgmsg, world, master_baladv, framenum);	
+
+				if (framenum==2)
+					master_baladv.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+						
+						b->parallel_write_segments(world, 0);
+					});
 
 
 				
