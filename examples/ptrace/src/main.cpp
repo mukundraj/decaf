@@ -363,7 +363,7 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				// block_ptr = reinterpret_cast<block*> (master_pred.release(master_pred.lid(gids[0])));
 				
 				
-				// move particles_hold to master_baladv->particles
+				// move particles_hold to master_baladv->particles for considering workload during kdt
 				master_baladv.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 					b->particles = std::move(particles_hold);
 				});		
@@ -446,6 +446,12 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 
 					return val;
 				});
+
+				master_baladv.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
+					b->particles = std::move(b->particles_continuing); // to be continued advecting in the next epoch
+				});		
+
+				
 
 				dbgmsg = "###particles after adv";
 				print_global_num_particles(dbgmsg, world, master_baladv, framenum);	

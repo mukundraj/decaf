@@ -51,10 +51,10 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 			// if (cellIdx == 5470)
 			// 		dprint("FOUND 5470, vid %d | %d | size %ld", vid, completed_verts.find(vid)==completed_verts.end(), completed_verts.size());
 
-			if (cellIdx == 3711-1){
-				dprint("FOUND cid 3711, aVertex %d, b->maxEdges %ld, b->gid %d", vid, b->maxEdges, b->gid);
-				// flag = 1;
-			}
+			// if (cellIdx == 3711-1){
+			// 	dprint("FOUND cid 3711, aVertex %d, b->maxEdges %ld, b->gid %d", vid, b->maxEdges, b->gid);
+			// 	// flag = 1;
+			// }
 			
 			// if vertId in completed_verts, skip remaining in this iteration
 			if (completed_verts.find(vid)==completed_verts.end()){
@@ -64,10 +64,10 @@ void flowline::cell_to_vertex_interpolation(block *b, bool pred_frame){
 
 				int flagg = 0;
 				// if (vid==870 || vid== 869 || vid==12465 || vid==4989 || vid==4994 || vid==12466){
-				if (vid==2028 || vid== 2027 || vid==13619 || vid==9256 || vid==9261 || vid==13620){
-					dprint("vid %d", vid);
-					flagg = vid;
-				}
+				// if (vid==2028 || vid== 2027 || vid==13619 || vid==9256 || vid==9261 || vid==13620){
+				// 	dprint("vid %d", vid);
+				// 	flagg = vid;
+				// }
 
 				const int vertexDegree = 3;
 				

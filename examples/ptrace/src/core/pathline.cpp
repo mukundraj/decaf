@@ -59,6 +59,7 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 			iCell = b->particles[pid].glCellIdx;
 
 			bool finished = false;
+			bool finished_final = false;
 
 			if (b->particles[pid].pid==5550)
 							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f),zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
@@ -190,27 +191,28 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 							break;
 						}
 
-						// if (b->particles[pid].pid==5550)
-						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
+						if (b->particles[pid].pid==5550)
+							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
 
 						// if (b->particles[pid].pid==3710)
 						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);	
 
 						// check if particle inside global domain and handle
-						if (!in_global_domain(p, b->xCell[iCell], b->yCell[iCell], b->zCell[iCell] ) || cur_nsteps >= nSteps)
+						if (!in_global_domain(p, b->xCell[iCell], b->yCell[iCell], b->zCell[iCell])){
 						// if (cur_nsteps >= nSteps || iCell == 31823)
-						{
+						
 							finished = true;
+							finished_final = true;
 							if (b->particles[pid].pid==5550)
 								dprint("exited global %d in gid %d, cur_nsteps %d, nSteps %f", b->particles[pid].pid, b->gid, cur_nsteps, nSteps);
 						
 							
 						}
 						
-						// if (cur_nsteps >= nSteps){
-						// 	finished = true;
+						if (cur_nsteps >= nSteps){
+							finished = true;
 
-						// }
+						}
 						
 						if (finished==true){
 							// if (prediction==true)
@@ -265,12 +267,12 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 					{
 						dprint("alert! jump gid %d dest_gid %d, pid %d, prev iCell %d, iCell %d, cur_nsteps %d, (%f %f %f)", b->gid, dest_gid, b->particles[pid].pid, b->particles[pid].glCellIdx, iCell, cur_nsteps, b->particles[pid][0],  b->particles[pid][1],  b->particles[pid][2]);
 					}
-			}else if (cur_nsteps >= nSteps){
+			}else if (cur_nsteps == nSteps && finished_final == false){
 				// particle continuing to next epoch in the same cell
 				EndPt pt;
 				pt.pid = b->particles[pid].pid; // Needs modification of diy code to be effective
 				pt[0] = particlePosition[0];  pt[1] = particlePosition[1];  pt[2] = particlePosition[2];
-				pt.nsteps = b->particles[pid].nsteps;
+				pt.nsteps = 0; // b->particles[pid].nsteps;
 				pt.zLevelParticle = zLevelParticle;
 				pt.glCellIdx = iCell;
 
@@ -290,16 +292,16 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 
 	if (b->particles_store.size() > 0 ){
 		// dprint("moving from store in %d", b->gid);
-		b->particles = std::move(b->particles_store);
+		b->particles = std::move(b->particles_store); // incoming particles from different cell in same epoch
 		// dprint("finishedt a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		return false;
 	}
 	else {
-		// b->particle_store.clear();
+		b->particles_store.clear();
 		// dprint("finishedf a callback in gid %d, %ld %ld", b->gid,  b->particles.size(), b->particles_store.size());
 		b->particles.clear(); // clearing particles if no particles came in
 		// dprint("b->particles_continuing %ld, gid %d", b->particles_continuing.size(), cp.gid());
-		b->particles = std::move(b->particles_continuing); // to be continued advecting in the next epoch
+		// b->particles = std::move(b->particles_continuing); // to be continued advecting in the next epoch
 		
 		return true;
 	}
