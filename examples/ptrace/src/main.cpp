@@ -264,7 +264,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				// initialize particles
 				if (world.rank() == 0)
 				{
-					// mpas1.generate_new_particle_file();
+					mpas1.generate_new_particle_file();
 					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
 				}
 			}
