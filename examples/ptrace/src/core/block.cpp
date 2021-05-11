@@ -799,9 +799,10 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 		segsid_local.push_back(segments[i].pid);
 	}
 
-	// for (size_t i=0; i<segsizes_local.size(); i++){
-	// 	dprint("rank %d i %ld segl %d", rank, i, segsizes_local[i]);
-	// }
+	if (rank==7)
+		for (size_t i=0; i<segsizes_local.size(); i++){
+			dprint("rank %d i %ld segl %d", rank, i, segsizes_local[i]);
+		}
 
 	// dprint("rank %d, totalseglen_local %d", rank, totalseglen_local);
 
@@ -856,6 +857,9 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 	{
 		seg_offsets[i] = seg_offsets[i - 1] + segsizes[i - 1];
 		totalseglen_global += segsizes[i];
+
+		if (rank==7)
+			dprint("i %d, seg_offsets[i] %d, segsizes[i-1] %d ", i, seg_offsets[i], segsizes[i - 1] );
 	}
 
 	// dprint("nSegments_global %d", nSegments_global);
@@ -959,8 +963,10 @@ void block::parallel_write_segments(diy::mpi::communicator &comm, int max_steps)
 			buffer_y[j] = segments[i].pts[j].coords[1];
 			buffer_z[j] = segments[i].pts[j].coords[2];
 		}
-		// if (rank==5)
-		// 	dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
+		if (rank==7)
+			dprint("rank %d, segsize %ld, i %ld, start %lld, size %ld", rank, segments[i].pts.size(), i, seg_offsets[rank]+local_offset, segments[i].pts.size());
+		if (rank==7 && i==6)
+			dprint("buffer x y z %f %f %f",  buffer_x[719], buffer_y[719], buffer_z[719]);
 
 		ret = ncmpi_put_vara_double_all(ncfile, varid_px, start, count, &buffer_x[0]);
 		if (ret != NC_NOERR)

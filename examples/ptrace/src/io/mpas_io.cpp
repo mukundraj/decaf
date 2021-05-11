@@ -276,9 +276,9 @@ void mpas_io::create_cells_kdtree(){
 			C_local(1,i) = yCells[i];
 			C_local(2,i) = zCells[i];
 
-      // if (i==23 || i==2298){
-      //   dprint("i %d, %f %f %f ", i, xyzCell[i*3], xyzCell[i*3+1], xyzCell[i*3+2]);
-      // }
+			// if (i==1780 || i==2298){
+			// 	dprint("readnow i %d, %f %f %f ", i, xyzCell[i*3], xyzCell[i*3+1], xyzCell[i*3+2]);
+			// }
 		}
 
 		nns_cells = Nabo::NNSearchD::createKDTreeLinearHeap(C_local);
@@ -487,8 +487,8 @@ void mpas_io::loadMeshFromNetCDF_CANGA(diy::mpi::communicator& world, const std:
 	// vertOnCell 434468 434488 429306 430222 430708 429126
 	// int vid = 434468-1; 
 	// dprint("uVertVel %f %f %f", uVertexVelocity[vid*nVertLevels], uVertexVelocity[vid*nVertLevels+1], uVertexVelocity[vid*nVertLevels+2]);
-	// int cell = 43382;
-	// dprint("cell coords %f %f %f", xCell[cell], yCell[cell], zCell[cell]);
+	int cell = 1780;
+	dprint("cell coords %f %f %f", xCell[cell], yCell[cell], zCell[cell]);
 
 	// dprint("nVertL %ld, nCells %ld, nVertLP1 %ld", nVertLevels, nCells, nVertLevelsP1);
 

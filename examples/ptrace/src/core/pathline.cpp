@@ -61,8 +61,10 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 			bool finished = false;
 			bool finished_final = false;
 
-			if (b->particles[pid].pid==5550)
-							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f),zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
+			
+			// if (iCell==1780)
+			if (b->particles[pid].pid==1780)
+					dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f),zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
 
 			
 			// if (b->particles[pid].pid!=5470)
@@ -191,8 +193,10 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 							break;
 						}
 
-						if (b->particles[pid].pid==5550)
-							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);
+						
+						// if (iCell==1780)
+						if (b->particles[pid].pid==1780)
+							dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f, iLevel %d", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle, iLevel);
 
 						// if (b->particles[pid].pid==3710)
 						// 	dprint("next particle gid %d pid %d, cur_nsteps %d, nSteps %f | iCell %d, (%f %f %f), zLevP %f", b->gid, b->particles[pid].pid, cur_nsteps, nSteps, iCell, particlePosition(0), particlePosition(1), particlePosition(2), zLevelParticle);	
@@ -203,8 +207,8 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 						
 							finished = true;
 							finished_final = true;
-							if (b->particles[pid].pid==5550)
-								dprint("exited global %d in gid %d, cur_nsteps %d, nSteps %f", b->particles[pid].pid, b->gid, cur_nsteps, nSteps);
+							// if (b->particles[pid].pid==5550)
+							// 	dprint("exited global %d in gid %d, cur_nsteps %d, nSteps %f", b->particles[pid].pid, b->gid, cur_nsteps, nSteps);
 						
 							
 						}
@@ -280,7 +284,8 @@ bool pathline::compute_flow(block *b, const diy::Master::ProxyWithLink &cp, cons
 			}
 
 			// push segment to block segment vector
-			// dprint("segsize %ld", seg.pts.size());
+			if (b->particles[pid].pid==1780)
+				dprint("segsize %ld, gid %d, segments %ld", seg.pts.size(), b->gid, b->segments.size());
 			// dprint ("seg.nsteps %d", seg.nsteps);
 			b->segments.push_back(seg);
 			// dprint("numsegs %ld", b->segments.size());

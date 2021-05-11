@@ -109,7 +109,8 @@ void remote_enq_data(
 			int dest_proc = assigner.rank(dest_gid);
 			diy::BlockID dest_block = {dest_gid, dest_proc};
 			outgoing_data[dest_block].push_back(cell_cen);
-			// dprint("cpgid %d dest_gid %d", cp.gid(), dest_gid);
+			if(cell_idx==5550)
+				dprint("cpgid %d dest_gid %d", cp.gid(), dest_gid);
 
 	   }
         
@@ -134,7 +135,7 @@ void remote_deq_data(block* b, const diy::Master::ProxyWithLink& cp){
 			std::vector<EndPt> incoming_endpts;
 			cp.dequeue(in[i], incoming_endpts);
 			// b->process_halo_req(incoming_halo, framenum);
-			dprint("cp.gid %d, numdeq %d", cp.gid(), incoming_endpts.size());
+			// dprint("cp.gid %d, numdeq %d", cp.gid(), incoming_endpts.size());
 
 			for (size_t j=0; j<incoming_endpts.size(); j++){
                 // b->particles.push_back(incoming_endpts[j]);
@@ -323,6 +324,16 @@ void sort_data(diy::Master &master, const diy::Assigner& assigner){
     master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 
 		b->move_data_to_regular_position(cp.gid());
+
+
+		int ctr = 5550;
+		if (cp.gid()==24){
+			for (size_t i=ctr*b->nVertLevelsP1; i<ctr*b->nVertLevelsP1 +b->nVertLevelsP1; i++)
+				fprintf(stderr, "%f ", b->vertVelocityTop[i]);
+
+			dprint("b->gcIdToGid[5551] %d", b->gcIdToGid[5551]);
+		}
+
 
         remote_enq_data(b, cp, assigner);
 

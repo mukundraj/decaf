@@ -323,12 +323,12 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 
 				// dprint("block_ptr->gcIdToGid[3711] %d, framenum %d", block_ptr->gcIdToGid[3711], framenum);
 				world.barrier();
-				int ctr = 3711-1;
-				if (block_ptr->gid==8){
-					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
-						fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
+				int ctr = 5550;
+				if (block_ptr->gid==24){
+					for (size_t i=ctr*block_ptr->nVertLevelsP1; i<ctr*block_ptr->nVertLevelsP1 +block_ptr->nVertLevelsP1; i++)
+						fprintf(stderr, "%f ", block_ptr->vertVelocityTop[i]);
 
-					// dprint("b->gcIdToGid[3711] %d", block_ptr->gcIdToGid[3711]);
+					dprint("b->gcIdToGid[5551] %d", block_ptr->gcIdToGid[5551]);
 				}
 
 
@@ -410,14 +410,14 @@ void con(Decaf *decaf, block &mpas1, pathline &pl, string &gp_file, double dtSim
 				ghost_exchange(master_baladv, assigner, false);
 
 
-				int ctr = 3711-1;
-				if (block_ptr->gid==26){
-					for (size_t i=ctr*block_ptr->nVertLevels; i<ctr*block_ptr->nVertLevels +block_ptr->nVertLevels; i++)
-						fprintf(stderr, "%f ", block_ptr->velocitiesX[1][i]);
+				world.barrier();
+				int ctr = 5550;
+				if (block_ptr->gid==24){
+					for (size_t i=ctr*block_ptr->nVertLevelsP1; i<ctr*block_ptr->nVertLevelsP1 +block_ptr->nVertLevelsP1; i++)
+						fprintf(stderr, "%f ", block_ptr->vertVelocityTop[i]);
 
-					// dprint("b->gcIdToGid[3711] %d", block_ptr->gcIdToGid[3711]);
+					dprint("b->gcIdToGid[5551] %d", block_ptr->gcIdToGid[5551]);
 				}
-
 				world.barrier();
 
 				// interpolate to vertex
