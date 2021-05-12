@@ -185,7 +185,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 	// build kd tree
 	mpas1.create_cells_kdtree();
 
-	
+	dprint("checkpoint1");
 
 	double time_trace = 0, time_gatherd = 0, time_lb = 0;
 
@@ -238,6 +238,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 			double time_0 = MPI_Wtime();
 
 			all_gather_data(world, data_bar_int, data_bar_dbl, data_id);
+
+			dprint("checkpoint 2");
 			
 			world.barrier();
 			double time_1 = MPI_Wtime();
@@ -252,6 +254,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 
 			// }
 
+			dprint("checkpoint 3");
+
 			if (framenum == 1 && data_id == 15)
 			{ // all static arrived
 
@@ -264,7 +268,7 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				// initialize particles
 				if (world.rank() == 0)
 				{
-					mpas1.generate_new_particle_file();
+					// mpas1.generate_new_particle_file();
 					mpas1.init_seeds_mpas(fname_particles, framenum, world.rank());
 				}
 			}
@@ -295,6 +299,8 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				double time_1 = MPI_Wtime();
 				time_lb += time_1 - time_0;
 
+				dprint("checkpoint 4");
+
 				//do{
 				master.foreach ([&](block *b, const diy::Master::ProxyWithLink &cp) {
 					// update field
@@ -315,10 +321,12 @@ void con(Decaf *decaf, diy::Master &master, diy::RoundRobinAssigner &assigner, b
 				//}while(reduce of all remaining particles not zero)
 				if (world.rank() == 0)
 					dprint("Completed dynamic frame %d", framenum);
+
+				dprint("checkpoint 5");
 				
 			}
 
-		
+
 	
 		} // looping through all in_data items
 
