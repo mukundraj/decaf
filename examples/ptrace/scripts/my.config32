@@ -1,0 +1,6 @@
+0-31       ./ocean_model
+32-63       ./ptrace --blocks 32 --check 0 particles/particles32.nc graphinfo/graph.info.part.32 1 36000000 50000 10 3 1 2
+
+#32-63       ./ptrace --blocks 32 --check 0 particles.nc graphinfo/graph.info.part.32 1 36000000 50000 1 1 1 2
+
+# $particle_file $gp_file $prediction $dtSim $dtParticle $seed_rate $pred_percent $skip_rate $rebal_interval
